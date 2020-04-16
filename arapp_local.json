@@ -1,0 +1,11 @@
+{
+  "environments": {
+    "devnet": {
+      "appName": "gardens-template.aragonpm.eth",
+      "address": "0x982b08a28974babb0731226f6bf79fc347192c58",
+      "network": "devnet",
+      "registry": "0x5f6f7e8cc7346a11ca2def8f827b7a0b612c56a1"
+    }
+  },
+  "path": "contracts/GardensTemplate.sol"
+}
