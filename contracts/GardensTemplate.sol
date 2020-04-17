@@ -2,6 +2,7 @@ pragma solidity 0.4.24;
 
 import "@aragon/templates-shared/contracts/BaseTemplate.sol";
 import "@1hive/apps-dandelion-voting/contracts/DandelionVoting.sol";
+import "@1hive/apps-redemptions/contracts/Redemptions.sol";
 import "./external/ITollgate.sol";
 
 contract GardensTemplate is BaseTemplate {
@@ -13,12 +14,16 @@ contract GardensTemplate is BaseTemplate {
     uint8 constant private TOKEN_DECIMALS = uint8(0);
     uint256 constant private TOKEN_MAX_PER_ACCOUNT = uint256(-1);
     uint64 constant private DEFAULT_FINANCE_PERIOD = uint64(30 days);
+    address constant private ANY_ENTITY = address(-1);
+    uint8 constant ORACLE_PARAM_ID = 203;
+    enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
     struct DeployedContracts {
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
         Vault agentOrVault;
+        TokenManager tokenManager;
     }
 
     mapping(address => DeployedContracts) internal senderDeployedContracts;
@@ -68,18 +73,26 @@ contract GardensTemplate is BaseTemplate {
         _createCustomVotingPermissions(acl, dandelionVoting, tokenManager);
         _createCustomTokenManagerPermissions(acl, tokenManager, dandelionVoting);
 
-        _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault);
+        _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault, tokenManager);
     }
 
     function createDaoTxTwo(string _id, ERC20 _tollgateFeeToken, uint256 _tollgateFeeAmount) external {
         _validateId(_id);
-        (Kernel dao, ACL acl, DandelionVoting dandelionVoting, Vault agentOrVault) = _getDeployedContracts();
+        (Kernel dao,
+        ACL acl,
+        DandelionVoting dandelionVoting,
+        Vault agentOrVault,
+        TokenManager tokenManager) = _getDeployedContracts();
 
         ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(agentOrVault));
         _createTollgatePermissions(acl, tollgate, dandelionVoting);
 
+        Redemptions redemptions = _installRedemptions(dao, agentOrVault, tokenManager, new address[](0));
+        _createRedemptionsPermissions(acl, redemptions, dandelionVoting);
+
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
+        _deleteStoredContracts();
     }
 
     // App installation functions //
@@ -103,14 +116,24 @@ contract GardensTemplate is BaseTemplate {
         return tollgate;
     }
 
+    function _installRedemptions(Kernel _dao, Vault _vault, TokenManager _tokenManager, address[] _redeemableTokens)
+        internal returns (Redemptions)
+    {
+        bytes32 redemptionsAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("redemptions")));
+        Redemptions redemptions = Redemptions(_installNonDefaultApp(_dao, redemptionsAppId));
+        redemptions.initialize(_vault, _tokenManager, _redeemableTokens);
+        return redemptions;
+    }
+
     // Permission setting functions //
 
     function _createCustomVotingPermissions(ACL _acl, DandelionVoting _dandelionVoting, TokenManager _tokenManager)
         internal
     {
-        _acl.createPermission(_tokenManager, _dandelionVoting, _dandelionVoting.CREATE_VOTES_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_QUORUM_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_SUPPORT_ROLE(), _dandelionVoting);
+        _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_BUFFER_BLOCKS_ROLE(), _dandelionVoting);
+        _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_EXECUTION_DELAY_ROLE(), _dandelionVoting);
     }
 
     function _createCustomTokenManagerPermissions(ACL _acl, TokenManager _tokenManager, DandelionVoting _dandelionVoting)
@@ -123,6 +146,16 @@ contract GardensTemplate is BaseTemplate {
     function _createTollgatePermissions(ACL _acl, ITollgate _tollgate, DandelionVoting _dandelionVoting) internal {
         _acl.createPermission(_dandelionVoting, _tollgate, _tollgate.CHANGE_AMOUNT_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _tollgate, _tollgate.CHANGE_DESTINATION_ROLE(), _dandelionVoting);
+        _acl.createPermission(_tollgate, _dandelionVoting, _dandelionVoting.CREATE_VOTES_ROLE(), _dandelionVoting);
+    }
+
+    function _createRedemptionsPermissions(ACL _acl, Redemptions _redemptions, DandelionVoting _dandelionVoting) internal {
+        _acl.createPermission(ANY_ENTITY, _redemptions, _redemptions.REDEEM_ROLE(), address(this));
+        _setOracle(_acl, ANY_ENTITY, _redemptions, _redemptions.REDEEM_ROLE(), _dandelionVoting);
+        _acl.setPermissionManager(_dandelionVoting, _redemptions, _redemptions.REDEEM_ROLE());
+
+        _acl.createPermission(_dandelionVoting, _redemptions, _redemptions.ADD_TOKEN_ROLE(), _dandelionVoting);
+        _acl.createPermission(_dandelionVoting, _redemptions, _redemptions.REMOVE_TOKEN_ROLE(), _dandelionVoting);
     }
 
     // Validation functions //
@@ -134,20 +167,40 @@ contract GardensTemplate is BaseTemplate {
 
     // Temporary Storage functions //
 
-    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault) internal {
+    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, TokenManager _tokenManager) internal {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         deployedContracts.dao = _dao;
         deployedContracts.acl = _acl;
         deployedContracts.dandelionVoting = _dandelionVoting;
         deployedContracts.agentOrVault = _agentOrVault;
+        deployedContracts.tokenManager = _tokenManager;
     }
 
-    function _getDeployedContracts() internal returns (Kernel, ACL, DandelionVoting, Vault) {
+    function _getDeployedContracts() internal returns (Kernel, ACL, DandelionVoting, Vault, TokenManager) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        return (deployedContracts.dao, deployedContracts.acl, deployedContracts.dandelionVoting, deployedContracts.agentOrVault);
+        return (
+            deployedContracts.dao,
+            deployedContracts.acl,
+            deployedContracts.dandelionVoting,
+            deployedContracts.agentOrVault,
+            deployedContracts.tokenManager
+        );
     }
 
     function _deleteStoredContracts() internal {
         delete senderDeployedContracts[msg.sender];
+    }
+
+    // Oracle permissions with params functions //
+
+    function _setOracle(ACL _acl, address _who, address _where, bytes32 _what, address _oracle) private {
+        uint256[] memory params = new uint256[](1);
+        params[0] = _paramsTo256(ORACLE_PARAM_ID, uint8(Op.EQ), uint240(_oracle));
+
+        _acl.grantPermissionP(_who, _where, _what, params);
+    }
+
+    function _paramsTo256(uint8 _id,uint8 _op, uint240 _value) private returns (uint256) {
+        return (uint256(_id) << 248) + (uint256(_op) << 240) + _value;
     }
 }
