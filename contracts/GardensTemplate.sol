@@ -4,7 +4,9 @@ import "@aragon/templates-shared/contracts/BaseTemplate.sol";
 import "@1hive/apps-dandelion-voting/contracts/DandelionVoting.sol";
 import "@1hive/apps-redemptions/contracts/Redemptions.sol";
 import "./external/ITollgate.sol";
+import "./external/IConvictionVoting.sol";
 
+// TODO: Add doc strings
 contract GardensTemplate is BaseTemplate {
 
     string constant private ERROR_MISSING_MEMBERS = "MEMBERSHIP_MISSING_MEMBERS";
@@ -43,9 +45,7 @@ contract GardensTemplate is BaseTemplate {
         string _voteTokenSymbol,
         address[] _members,
         uint64[5] _votingSettings,
-        uint64 _financePeriod,
-        bool _useAgentAsVault,
-        bool _useConvictionAsFinance
+        bool _useAgentAsVault
     )
         public
     {
@@ -53,21 +53,16 @@ contract GardensTemplate is BaseTemplate {
 
         (Kernel dao, ACL acl) = _createDAO();
         MiniMeToken voteToken = _createToken(_voteTokenName, _voteTokenSymbol, TOKEN_DECIMALS);
-        TokenManager tokenManager = _installTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
-        DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
         Vault agentOrVault = _useAgentAsVault ? _installDefaultAgentApp(dao) : _installVaultApp(dao);
-        Finance finance = _useConvictionAsFinance ? _installFinanceApp(dao, agentOrVault, DEFAULT_FINANCE_PERIOD) : _installFinanceApp(dao, agentOrVault, DEFAULT_FINANCE_PERIOD);
+        DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
+        TokenManager tokenManager = _installTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
 
-        // Mint tokens
+        // Mint tokens (will be done using fundraising)
         _mintTokens(acl, tokenManager, _members, 1);
 
         // Set up permissions
         if (_useAgentAsVault) {
             _createAgentPermissions(acl, Agent(agentOrVault), dandelionVoting, dandelionVoting);
-        }
-        _createVaultPermissions(acl, agentOrVault, finance, dandelionVoting);
-        if (!_useConvictionAsFinance) {
-            _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
         }
         _createEvmScriptsRegistryPermissions(acl, dandelionVoting, dandelionVoting);
         _createCustomVotingPermissions(acl, dandelionVoting, tokenManager);
@@ -76,7 +71,16 @@ contract GardensTemplate is BaseTemplate {
         _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault, tokenManager);
     }
 
-    function createDaoTxTwo(string _id, ERC20 _tollgateFeeToken, uint256 _tollgateFeeAmount) external {
+    function createDaoTxTwo(
+        string _id,
+        ERC20 _tollgateFeeToken,
+        uint256 _tollgateFeeAmount,
+        bool _useConvictionAsFinance,
+        ERC20 _convictionVotingRequestToken,
+        uint64 _financePeriod
+    )
+        public
+    {
         _validateId(_id);
         (Kernel dao,
         ACL acl,
@@ -89,6 +93,15 @@ contract GardensTemplate is BaseTemplate {
 
         Redemptions redemptions = _installRedemptions(dao, agentOrVault, tokenManager, new address[](0));
         _createRedemptionsPermissions(acl, redemptions, dandelionVoting);
+
+        if (_useConvictionAsFinance) {
+            IConvictionVoting convictionVoting = _installConvictionVoting(dao, tokenManager.token(), agentOrVault, _convictionVotingRequestToken);
+            _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
+        } else {
+            Finance finance = _installFinanceApp(dao, agentOrVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
+            _createVaultPermissions(acl, agentOrVault, finance, dandelionVoting);
+            _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
+        }
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
@@ -116,13 +129,22 @@ contract GardensTemplate is BaseTemplate {
         return tollgate;
     }
 
-    function _installRedemptions(Kernel _dao, Vault _vault, TokenManager _tokenManager, address[] _redeemableTokens)
+    function _installRedemptions(Kernel _dao, Vault _agentOrVault, TokenManager _tokenManager, address[] _redeemableTokens)
         internal returns (Redemptions)
     {
         bytes32 redemptionsAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("redemptions")));
         Redemptions redemptions = Redemptions(_installNonDefaultApp(_dao, redemptionsAppId));
-        redemptions.initialize(_vault, _tokenManager, _redeemableTokens);
+        redemptions.initialize(_agentOrVault, _tokenManager, _redeemableTokens);
         return redemptions;
+    }
+
+    function _installConvictionVoting(Kernel _dao, MiniMeToken _stakeToken, Vault _agentOrVault, address _requestToken)
+        internal returns (IConvictionVoting)
+    {
+        bytes32 convictionVotingAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("conviction-voting")));
+        IConvictionVoting convictionVoting = IConvictionVoting(_installNonDefaultApp(_dao, convictionVotingAppId));
+        convictionVoting.initialize(_stakeToken, _agentOrVault, _requestToken);
+        return convictionVoting;
     }
 
     // Permission setting functions //
@@ -149,13 +171,21 @@ contract GardensTemplate is BaseTemplate {
         _acl.createPermission(_tollgate, _dandelionVoting, _dandelionVoting.CREATE_VOTES_ROLE(), _dandelionVoting);
     }
 
-    function _createRedemptionsPermissions(ACL _acl, Redemptions _redemptions, DandelionVoting _dandelionVoting) internal {
+    function _createRedemptionsPermissions(ACL _acl, Redemptions _redemptions, DandelionVoting _dandelionVoting)
+        internal
+    {
         _acl.createPermission(ANY_ENTITY, _redemptions, _redemptions.REDEEM_ROLE(), address(this));
         _setOracle(_acl, ANY_ENTITY, _redemptions, _redemptions.REDEEM_ROLE(), _dandelionVoting);
         _acl.setPermissionManager(_dandelionVoting, _redemptions, _redemptions.REDEEM_ROLE());
 
         _acl.createPermission(_dandelionVoting, _redemptions, _redemptions.ADD_TOKEN_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _redemptions, _redemptions.REMOVE_TOKEN_ROLE(), _dandelionVoting);
+    }
+
+    function _createConvictionVotingPermissions(ACL _acl, IConvictionVoting _convictionVoting, DandelionVoting _dandelionVoting)
+        internal
+    {
+        _acl.createPermission(ANY_ENTITY, _convictionVoting, _convictionVoting.CREATE_PROPOSALS_ROLE(), _dandelionVoting);
     }
 
     // Validation functions //
