@@ -23,6 +23,8 @@ const gardensTemplateAddress = () => {
     return Arapp.environments.devnet.address
   }
 }
+
+// Create dao transaction one config
 const ORG_TOKEN_NAME = "OrgToken"
 const ORG_TOKEN_SYMBOL = "OGT"
 const SUPPORT_REQUIRED = 50e16 // 50%
@@ -33,6 +35,7 @@ const VOTE_EXECUTION_DELAY_BLOCKS = 5
 const VOTING_SETTINGS = [SUPPORT_REQUIRED, MIN_ACCEPTANCE_QUORUM, VOTE_DURATION_BLOCKS, VOTE_BUFFER_BLOCKS, VOTE_EXECUTION_DELAY_BLOCKS]
 const USE_AGENT_AS_VAULT = false
 
+// Create dao transaction two config
 const TOLLGATE_FEE = 1e18 // 1 DAI
 const USE_CONVICTION_AS_FINANCE = true
 const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
