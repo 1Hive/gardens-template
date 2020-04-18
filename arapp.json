@@ -1,0 +1,11 @@
+{
+  "environments": {
+    "rinkeby": {
+      "appName": "gardens-template.aragonpm.eth",
+      "address": "0x9a6ccf6fda0e0710a3d1236d0caf051c32f26f59",
+      "network": "rinkeby",
+      "registry": "0x98Df287B6C145399Aaa709692c8D308357bC085D"
+    }
+  },
+  "path": "contracts/GardensTemplate.sol"
+}

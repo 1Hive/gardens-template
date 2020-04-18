@@ -46,12 +46,18 @@ $ npm run deploy:rpc
 - Execute `npm run build` in the root folder
 - Execute `npm run publish:major` in the root folder
 
-9) Create a new Help Dao on the devchain (each time this is called the `DAO_ID` const or `daoid` argument must be changed to something unused):
+9) Deploy the Tollgate app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
+- Download https://github.com/aragonone/tollgate
+- Run `npm install` in the root folder
+- Execute `npm run build` in the root folder
+- Execute `aragon apm publish major` in the root folder
+
+10) Create a new Help Dao on the devchain (each time this is called the `DAO_ID` const or `daoid` argument must be changed to something unused):
 ```
 $ npx truffle exec scripts/new-dao.js --network rpc --daoid <unique id>
 ```
 
-10) Copy the output DAO address into this URL and open it in a web browser:
+11) Copy the output DAO address into this URL and open it in a web browser:
 ```
 http://localhost:3000/#/<DAO address>
 ```
