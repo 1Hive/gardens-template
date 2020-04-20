@@ -1,5 +1,13 @@
 {
   "environments": {
+    "default": {
+      "appName": "gardens-template.aragonpm.eth",
+      "network": "rpc"
+    },
+    "devnet": {
+      "appName": "gardens-template.aragonpm.eth",
+      "network": "devnet"
+    },
     "rinkeby": {
       "appName": "gardens-template.aragonpm.eth",
       "address": "0x9a6ccf6fda0e0710a3d1236d0caf051c32f26f59",

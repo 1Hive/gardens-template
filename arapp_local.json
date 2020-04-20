@@ -2,7 +2,7 @@
   "environments": {
     "devnet": {
       "appName": "gardens-template.aragonpm.eth",
-      "address": "0xe0093ac40b4fd1e9552b34c250cf2fd4c6f7551f",
+      "address": "0xc2f8db74fd6e6b4f5f31718a948dee544dd905f7",
       "network": "devnet",
       "registry": "0x5f6f7e8cc7346a11ca2def8f827b7a0b612c56a1"
     }

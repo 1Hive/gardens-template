@@ -5,12 +5,24 @@ import "@1hive/apps-dandelion-voting/contracts/DandelionVoting.sol";
 import "@1hive/apps-redemptions/contracts/Redemptions.sol";
 import "./external/ITollgate.sol";
 import "./external/IConvictionVoting.sol";
+import "@ablack/fundraising-bancor-formula/contracts/BancorFormula.sol";
+import {AragonFundraisingController as Controller} from "@ablack/fundraising-aragon-fundraising/contracts/AragonFundraisingController.sol";
+import {BatchedBancorMarketMaker as MarketMaker} from "@ablack/fundraising-batched-bancor-market-maker/contracts/BatchedBancorMarketMaker.sol";
+import "@ablack/fundraising-presale/contracts/Presale.sol";
+import "@ablack/fundraising-tap/contracts/Tap.sol";
 
 // TODO: Add doc strings
+// TODO: Error checking for cached contracts
 contract GardensTemplate is BaseTemplate {
 
     string constant private ERROR_MISSING_MEMBERS = "MEMBERSHIP_MISSING_MEMBERS";
     string constant private ERROR_BAD_VOTE_SETTINGS = "MEMBERSHIP_BAD_VOTE_SETTINGS";
+
+    bytes32 private constant BANCOR_FORMULA_ID = 0xd71dde5e4bea1928026c1779bde7ed27bd7ef3d0ce9802e4117631eb6fa4ed7d;
+    bytes32 private constant PRESALE_ID = 0x5de9bbdeaf6584c220c7b7f1922383bcd8bbcd4b48832080afd9d5ebf9a04df5;
+    bytes32 private constant MARKET_MAKER_ID= 0xc2bb88ab974c474221f15f691ed9da38be2f5d37364180cec05403c656981bf0;
+    bytes32 private constant ARAGON_FUNDRAISING_ID = 0x668ac370eed7e5861234d1c0a1e512686f53594fcb887e5bcecc35675a4becac;
+    bytes32 private constant TAP_ID = 0x82967efab7144b764bc9bca2f31a721269b6618c0ff4e50545737700a5e9c9dc;
 
     bool constant private TOKEN_TRANSFERABLE = false;
     uint8 constant private TOKEN_DECIMALS = uint8(0);
@@ -20,12 +32,21 @@ contract GardensTemplate is BaseTemplate {
     uint8 constant ORACLE_PARAM_ID = 203;
     enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
+    uint256 private constant BUY_FEE_PCT = 0;
+    uint256 private constant SELL_FEE_PCT = 0;
+
     struct DeployedContracts {
+        address[] collaterals;
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
         Vault agentOrVault;
         TokenManager tokenManager;
+        Agent reserve;
+        Presale presale;
+        MarketMaker marketMaker;
+        Tap tap;
+        Controller controller;
     }
 
     mapping(address => DeployedContracts) internal senderDeployedContracts;
@@ -72,7 +93,6 @@ contract GardensTemplate is BaseTemplate {
     }
 
     function createDaoTxTwo(
-        string _id,
         ERC20 _tollgateFeeToken,
         uint256 _tollgateFeeAmount,
         bool _useConvictionAsFinance,
@@ -81,12 +101,11 @@ contract GardensTemplate is BaseTemplate {
     )
         public
     {
-        _validateId(_id);
         (Kernel dao,
         ACL acl,
         DandelionVoting dandelionVoting,
         Vault agentOrVault,
-        TokenManager tokenManager) = _getDeployedContracts();
+        TokenManager tokenManager) = _getDeployedContractsTxOne();
 
         ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(agentOrVault));
         _createTollgatePermissions(acl, tollgate, dandelionVoting);
@@ -102,6 +121,50 @@ contract GardensTemplate is BaseTemplate {
             _createVaultPermissions(acl, agentOrVault, finance, dandelionVoting);
             _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
         }
+    }
+
+    function createDaoTxThree(
+        uint256 _goal,
+        uint64  _period,
+        uint256 _exchangeRate,
+        uint64  _vestingCliffPeriod,
+        uint64  _vestingCompletePeriod,
+        uint256 _supplyOfferedPct,
+        uint256 _fundingForBeneficiaryPct,
+        uint64  _openDate,
+        uint256 _batchBlocks,
+        uint256 _maxTapRateIncreasePct,
+        uint256 _maxTapFloorDecreasePct,
+        address[] _collaterals
+    )
+        external
+    {
+        (Kernel dao,,,,) = _getDeployedContractsTxOne();
+
+        _installFundraisingApps(
+            dao,
+            _goal,
+            _period,
+            _exchangeRate,
+            _vestingCliffPeriod,
+            _vestingCompletePeriod,
+            _supplyOfferedPct,
+            _fundingForBeneficiaryPct,
+            _openDate,
+            _batchBlocks,
+            _maxTapRateIncreasePct,
+            _maxTapFloorDecreasePct,
+            _collaterals
+        );
+        // setup share apps permissions [now that fundraising apps have been installed]
+//        _setupSharePermissions(dao);
+        // setup fundraising apps permissions
+//        _setupFundraisingPermissions(dao);
+    }
+
+    function createDaoTxFour(string _id) external {
+        _validateId(_id);
+        (Kernel dao,,DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
@@ -145,6 +208,105 @@ contract GardensTemplate is BaseTemplate {
         IConvictionVoting convictionVoting = IConvictionVoting(_installNonDefaultApp(_dao, convictionVotingAppId));
         convictionVoting.initialize(_stakeToken, _agentOrVault, _requestToken);
         return convictionVoting;
+    }
+
+    function _installFundraisingApps(
+        Kernel  _dao,
+        uint256 _goal,
+        uint64  _period,
+        uint256 _exchangeRate,
+        uint64  _vestingCliffPeriod,
+        uint64  _vestingCompletePeriod,
+        uint256 _supplyOfferedPct,
+        uint256 _fundingForBeneficiaryPct,
+        uint64  _openDate,
+        uint256 _batchBlocks,
+        uint256 _maxTapRateIncreasePct,
+        uint256 _maxTapFloorDecreasePct,
+        address[] _collaterals
+    )
+        internal
+    {
+        _proxifyFundraisingApps(_dao);
+
+        _initializePresale(
+            _goal,
+            _period,
+            _exchangeRate,
+            _vestingCliffPeriod,
+            _vestingCompletePeriod,
+            _supplyOfferedPct,
+            _fundingForBeneficiaryPct,
+            _openDate,
+            _collaterals
+        );
+        _initializeMarketMaker(_batchBlocks);
+        _initializeTap(_batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
+        _initializeController(_collaterals);
+    }
+
+    function _proxifyFundraisingApps(Kernel _dao) internal {
+        Agent reserve = _installNonDefaultAgentApp(_dao);
+        Presale presale = Presale(_installNonDefaultApp(_dao, PRESALE_ID));
+        MarketMaker marketMaker = MarketMaker(_installNonDefaultApp(_dao, MARKET_MAKER_ID));
+        Tap tap = Tap(_installNonDefaultApp(_dao, TAP_ID));
+        Controller controller = Controller(_installNonDefaultApp(_dao, ARAGON_FUNDRAISING_ID));
+
+        _storeDeployedContractsTxThree(reserve, presale, marketMaker, tap, controller);
+    }
+
+    function _initializePresale(
+        uint256 _goal,
+        uint64  _period,
+        uint256 _exchangeRate,
+        uint64  _vestingCliffPeriod,
+        uint64  _vestingCompletePeriod,
+        uint256 _supplyOfferedPct,
+        uint256 _fundingForBeneficiaryPct,
+        uint64  _openDate,
+        address[] _collaterals
+    )
+        internal
+    {
+        // Accessing deployed contracts directly due to stack too deep error.
+        senderDeployedContracts[msg.sender].presale.initialize(
+            senderDeployedContracts[msg.sender].controller,
+            senderDeployedContracts[msg.sender].tokenManager,
+            senderDeployedContracts[msg.sender].reserve,
+            senderDeployedContracts[msg.sender].agentOrVault,
+            _collaterals[0],
+            _goal,
+            _period,
+            _exchangeRate,
+            _vestingCliffPeriod,
+            _vestingCompletePeriod,
+            _supplyOfferedPct,
+            _fundingForBeneficiaryPct,
+            _openDate
+        );
+    }
+
+    function _initializeMarketMaker(uint256 _batchBlocks) internal {
+        IBancorFormula bancorFormula = IBancorFormula(_latestVersionAppBase(BANCOR_FORMULA_ID));
+
+        (Kernel dao,,, Vault beneficiary, TokenManager tokenManager) = _getDeployedContractsTxOne();
+        (Agent reserve,, MarketMaker marketMaker,, Controller controller) = _getDeployedContractsTxThree();
+
+        marketMaker.initialize(controller, tokenManager, bancorFormula, reserve, beneficiary, _batchBlocks, BUY_FEE_PCT, SELL_FEE_PCT);
+    }
+
+    function _initializeTap(uint256 _batchBlocks, uint256 _maxTapRateIncreasePct, uint256 _maxTapFloorDecreasePct) internal {
+        (,,, Vault beneficiary,) = _getDeployedContractsTxOne();
+        (Agent reserve,,, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+
+        tap.initialize(controller, reserve, beneficiary, _batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
+    }
+
+    function _initializeController(address[] _collaterals) internal {
+        (Agent reserve, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+        address[] memory toReset = new address[](1);
+        toReset[0] = _collaterals[0];
+        controller.initialize(presale, marketMaker, reserve, tap, toReset);
     }
 
     // Permission setting functions //
@@ -197,7 +359,9 @@ contract GardensTemplate is BaseTemplate {
 
     // Temporary Storage functions //
 
-    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, TokenManager _tokenManager) internal {
+    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, TokenManager _tokenManager)
+        internal
+    {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         deployedContracts.dao = _dao;
         deployedContracts.acl = _acl;
@@ -206,7 +370,7 @@ contract GardensTemplate is BaseTemplate {
         deployedContracts.tokenManager = _tokenManager;
     }
 
-    function _getDeployedContracts() internal returns (Kernel, ACL, DandelionVoting, Vault, TokenManager) {
+    function _getDeployedContractsTxOne() internal returns (Kernel, ACL, DandelionVoting, Vault, TokenManager) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         return (
             deployedContracts.dao,
@@ -214,6 +378,28 @@ contract GardensTemplate is BaseTemplate {
             deployedContracts.dandelionVoting,
             deployedContracts.agentOrVault,
             deployedContracts.tokenManager
+        );
+    }
+
+    function _storeDeployedContractsTxThree(Agent _reserve, Presale _presale, MarketMaker _marketMaker, Tap _tap, Controller _controller)
+        internal
+    {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        deployedContracts.reserve = _reserve;
+        deployedContracts.presale = _presale;
+        deployedContracts.marketMaker = _marketMaker;
+        deployedContracts.tap = _tap;
+        deployedContracts.controller = _controller;
+    }
+
+    function _getDeployedContractsTxThree() internal returns (Agent, Presale, MarketMaker, Tap, Controller) {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        return (
+            deployedContracts.reserve,
+            deployedContracts.presale,
+            deployedContracts.marketMaker,
+            deployedContracts.tap,
+            deployedContracts.controller
         );
     }
 

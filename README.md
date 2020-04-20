@@ -32,7 +32,7 @@ $ npm run deploy:rpc
 - Download https://github.com/1Hive/conviction-voting-app
 - Run `npm install` in the root folder
 - Execute `npm run build` in the root folder
-- Execute `npm run publish:major` in the root folder
+- Execute `aragon apm publish major --files dist --skip-confirmation` in the root folder
 
 7) Deploy the Dandelion Voting app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
 - Download https://github.com/1Hive/dandelion-voting-app
@@ -50,14 +50,24 @@ $ npm run deploy:rpc
 - Download https://github.com/aragonone/tollgate
 - Run `npm install` in the root folder
 - Execute `npm run build` in the root folder
-- Execute `aragon apm publish major` in the root folder
+- Execute `aragon apm publish major --skip-confirmation` in the root folder
 
-10) Create a new Help Dao on the devchain (each time this is called the `DAO_ID` const or `daoid` argument must be changed to something unused):
+10) Deploy the Fundraising suite Presale app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
+- Download https://github.com/AragonBlack/fundraising
+- Add these lines to the `apps/presale/package.json` dependencies section:
+```
+    "@ablack/fundraising-shared-interfaces": "^1.0.0",
+    "@ablack/fundraising-shared-test-helpers": "^1.0.0"
+```
+- Run `npm install` in the `apps/presale` folder
+- Execute `aragon apm publish major --skip-confirmation` in the `apps/presale` folder
+
+11) Create a new Gardens Dao on the devchain (each time this is called the `DAO_ID` const or `daoid` argument must be changed to something unused):
 ```
 $ npx truffle exec scripts/new-dao.js --network rpc --daoid <unique id>
 ```
 
-11) Copy the output DAO address into this URL and open it in a web browser:
+12) Copy the output DAO address into this URL and open it in a web browser:
 ```
 http://localhost:3000/#/<DAO address>
 ```

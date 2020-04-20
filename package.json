@@ -48,7 +48,12 @@
     "@aragon/apps-shared-minime": "^1.0.0",
     "@aragon/templates-shared": "1.0.0",
     "@1hive/apps-dandelion-voting": "2.0.0",
-    "@1hive/apps-redemptions": "2.0.1"
+    "@1hive/apps-redemptions": "2.0.1",
+    "@ablack/fundraising-aragon-fundraising": "^1.0.0",
+    "@ablack/fundraising-bancor-formula": "^1.0.0",
+    "@ablack/fundraising-batched-bancor-market-maker": "^1.0.0",
+    "@ablack/fundraising-presale": "^1.0.0",
+    "@ablack/fundraising-tap": "^1.0.0"
   },
   "devDependencies": {
     "@aragon/test-helpers": "^2.0.0",

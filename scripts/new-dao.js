@@ -24,6 +24,9 @@ const gardensTemplateAddress = () => {
   }
 }
 
+const DAYS = 24 * 3600
+const PPM = 1e6
+
 // Create dao transaction one config
 const ORG_TOKEN_NAME = "OrgToken"
 const ORG_TOKEN_SYMBOL = "OGT"
@@ -40,15 +43,29 @@ const TOLLGATE_FEE = 1e18 // 1 DAI
 const USE_CONVICTION_AS_FINANCE = true
 const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 
+// Create dao transaction three config
+const PRESALE_GOAL = 100e18
+const PRESALE_PERIOD = 14 * DAYS
+const PRESALE_EXCHANGE_RATE = 2 * PPM
+const VESTING_CLIFF_PERIOD = 90 * DAYS
+const VESTING_COMPLETE_PERIOD = 360 * DAYS
+const PERCENT_SUPPLY_OFFERED = 0.9 * PPM // 90%
+const PERCENT_FUNDING_FOR_BENEFICIARY = 0.25 * PPM // 25%
+
+const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
+const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
+
+const BATCH_BLOCKS = 1
+
 module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
 
-    const tollgateToken = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
-    console.log(`Created HNY Token: ${tollgateToken.address}`)
+    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
+    console.log(`Created HNY Token: ${HNY.address}`)
 
-    const convictionVotingRequestToken = await Token.new(INITIAL_SUPERVISOR, "DAI", "DAI")
-    console.log(`Created DAI Token: ${convictionVotingRequestToken.address}`)
+    const DAI = await Token.new(INITIAL_SUPERVISOR, "DAI", "DAI")
+    console.log(`Created DAI Token: ${DAI.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
       ORG_TOKEN_NAME,
@@ -61,14 +78,32 @@ module.exports = async (callback) => {
     console.log(`Tx One Complete. DAO address: ${createDaoTxOneReceipt.logs.find(x => x.event === "DeployDao").args.dao} Gas used: ${createDaoTxOneReceipt.receipt.gasUsed} `)
 
     const createDaoTxTwoReceipt = await gardensTemplate.createDaoTxTwo(
-      daoId(),
-      tollgateToken.address,
+      HNY.address,
       TOLLGATE_FEE,
       USE_CONVICTION_AS_FINANCE,
-      convictionVotingRequestToken.address,
+      DAI.address,
       FINANCE_PERIOD
     )
-    console.log(`Tx Two Complete. Gas used: ${createDaoTxTwoReceipt.receipt.gasUsed} `)
+    console.log(`Tx Two Complete. Gas used: ${createDaoTxTwoReceipt.receipt.gasUsed}`)
+
+    const createDaoTxThreeReceipt = await gardensTemplate.createDaoTxThree(
+      PRESALE_GOAL,
+      PRESALE_PERIOD,
+      PRESALE_EXCHANGE_RATE,
+      VESTING_CLIFF_PERIOD,
+      VESTING_COMPLETE_PERIOD,
+      PERCENT_SUPPLY_OFFERED,
+      PERCENT_FUNDING_FOR_BENEFICIARY,
+      0,
+      BATCH_BLOCKS,
+      MAXIMUM_TAP_RATE_INCREASE_PCT,
+      MAXIMUM_TAP_FLOOR_DECREASE_PCT,
+      [HNY.address]
+    )
+    console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
+
+    const createDaoTxFourReceipt = await gardensTemplate.createDaoTxFour(daoId())
+    console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 
 
   } catch (error) {
