@@ -32,11 +32,16 @@ contract GardensTemplate is BaseTemplate {
     uint8 constant ORACLE_PARAM_ID = 203;
     enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
+    // TODO: Pass these in?
     uint256 private constant BUY_FEE_PCT = 0;
     uint256 private constant SELL_FEE_PCT = 0;
 
+    // TODO: Pass these in?
+    uint32 private constant PRIMARY_RESERVE_RATIO = 100000; // 10%
+    uint32 private constant SECONDARY_RESERVE_RATIO = 10000;  // 1%
+
     struct DeployedContracts {
-        address[] collaterals;
+        address[] collateralTokens;
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
@@ -87,7 +92,7 @@ contract GardensTemplate is BaseTemplate {
         }
         _createEvmScriptsRegistryPermissions(acl, dandelionVoting, dandelionVoting);
         _createCustomVotingPermissions(acl, dandelionVoting, tokenManager);
-        _createCustomTokenManagerPermissions(acl, tokenManager, dandelionVoting);
+//        _createCustomTokenManagerPermissions(acl, tokenManager, dandelionVoting);
 
         _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault, tokenManager);
     }
@@ -115,7 +120,7 @@ contract GardensTemplate is BaseTemplate {
 
         if (_useConvictionAsFinance) {
             IConvictionVoting convictionVoting = _installConvictionVoting(dao, tokenManager.token(), agentOrVault, _convictionVotingRequestToken);
-            _createVaultPermissions(acl, agentOrVault, _convictionVoting, dandelionVoting);
+            _createVaultPermissions(acl, agentOrVault, convictionVoting, dandelionVoting);
             _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
         } else {
             Finance finance = _installFinanceApp(dao, agentOrVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
@@ -136,11 +141,11 @@ contract GardensTemplate is BaseTemplate {
         uint256 _batchBlocks,
         uint256 _maxTapRateIncreasePct,
         uint256 _maxTapFloorDecreasePct,
-        address[] _collaterals
+        address[] _collateralTokens
     )
-        external
+        public
     {
-        (Kernel dao,,,,) = _getDeployedContractsTxOne();
+        (Kernel dao, ACL acl,,,) = _getDeployedContractsTxOne();
 
         _installFundraisingApps(
             dao,
@@ -155,22 +160,75 @@ contract GardensTemplate is BaseTemplate {
             _batchBlocks,
             _maxTapRateIncreasePct,
             _maxTapFloorDecreasePct,
-            _collaterals
+            _collateralTokens
         );
-        // setup share apps permissions [now that fundraising apps have been installed]
-//        _setupSharePermissions(dao);
-        // setup fundraising apps permissions
-//        _setupFundraisingPermissions(dao);
+
+        _createCustomTokenManagerPermissions(dao, acl);
+        _createFundraisingPermissions(dao, acl);
+        _storeCollateralTokens(_collateralTokens);
     }
 
-    function createDaoTxFour(string _id) external {
+    function createDaoTxFour(
+        string _id,
+        uint256[] _virtualSupplies
+//        uint256[2] _virtualBalances
+//        uint256[2] _slippages,
+//        uint256    _rateDAI,
+//        uint256    _floorDAI
+    )
+        external
+    {
         _validateId(_id);
-        (Kernel dao,,DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
+        (Kernel dao, ACL acl, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
+
+//        _setupCollaterals(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _rateDAI, _floorDAI);
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
         _deleteStoredContracts();
     }
+
+    function _setupCollaterals(
+        Kernel     _dao,
+        ACL _acl,
+        uint256[2] _virtualSupplies,
+        uint256[2] _virtualBalances,
+        uint256[2] _slippages,
+        uint256    _rateDAI,
+        uint256    _floorDAI
+    )
+        internal
+    {
+        (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
+        (,,,, Controller controller) = _getDeployedContractsTxThree();
+        address[] memory collaterals = _getCollateralTokens();
+
+        // create and grant ADD_COLLATERAL_TOKEN_ROLE to this template
+        _createPermissionForTemplate(_acl, address(controller), controller.ADD_COLLATERAL_TOKEN_ROLE());
+        // add primary collateral both as a protected collateral and a tapped token
+        controller.addCollateralToken(
+            collaterals[0],
+            _virtualSupplies[0],
+            _virtualBalances[0],
+            PRIMARY_RESERVE_RATIO,
+            _slippages[0],
+            _rateDAI,
+            _floorDAI
+        );
+        // add secondary collateral as a protected collateral [but not as a tapped token]
+        controller.addCollateralToken(
+            collaterals[1],
+            _virtualSupplies[1],
+            _virtualBalances[1],
+            SECONDARY_RESERVE_RATIO,
+            _slippages[1],
+            0,
+            0
+        );
+        // transfer ADD_COLLATERAL_TOKEN_ROLE
+        _transferPermissionFromTemplate(_acl, controller, dandelionVoting, controller.ADD_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+    }
+
 
     // App installation functions //
 
@@ -224,7 +282,7 @@ contract GardensTemplate is BaseTemplate {
         uint256 _batchBlocks,
         uint256 _maxTapRateIncreasePct,
         uint256 _maxTapFloorDecreasePct,
-        address[] _collaterals
+        address[] _collateralTokens
     )
         internal
     {
@@ -239,11 +297,11 @@ contract GardensTemplate is BaseTemplate {
             _supplyOfferedPct,
             _fundingForBeneficiaryPct,
             _openDate,
-            _collaterals
+            _collateralTokens
         );
         _initializeMarketMaker(_batchBlocks);
         _initializeTap(_batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
-        _initializeController(_collaterals);
+        _initializeController(_collateralTokens);
     }
 
     function _proxifyFundraisingApps(Kernel _dao) internal {
@@ -265,7 +323,7 @@ contract GardensTemplate is BaseTemplate {
         uint256 _supplyOfferedPct,
         uint256 _fundingForBeneficiaryPct,
         uint64  _openDate,
-        address[] _collaterals
+        address[] _collateralTokens
     )
         internal
     {
@@ -275,7 +333,7 @@ contract GardensTemplate is BaseTemplate {
             senderDeployedContracts[msg.sender].tokenManager,
             senderDeployedContracts[msg.sender].reserve,
             senderDeployedContracts[msg.sender].agentOrVault,
-            _collaterals[0],
+            _collateralTokens[0],
             _goal,
             _period,
             _exchangeRate,
@@ -303,10 +361,10 @@ contract GardensTemplate is BaseTemplate {
         tap.initialize(controller, reserve, beneficiary, _batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
     }
 
-    function _initializeController(address[] _collaterals) internal {
+    function _initializeController(address[] _collateralTokens) internal {
         (Agent reserve, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
         address[] memory toReset = new address[](1);
-        toReset[0] = _collaterals[0];
+        toReset[0] = _collateralTokens[0];
         controller.initialize(presale, marketMaker, reserve, tap, toReset);
     }
 
@@ -319,13 +377,6 @@ contract GardensTemplate is BaseTemplate {
         _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_SUPPORT_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_BUFFER_BLOCKS_ROLE(), _dandelionVoting);
         _acl.createPermission(_dandelionVoting, _dandelionVoting, _dandelionVoting.MODIFY_EXECUTION_DELAY_ROLE(), _dandelionVoting);
-    }
-
-    function _createCustomTokenManagerPermissions(ACL _acl, TokenManager _tokenManager, DandelionVoting _dandelionVoting)
-        internal
-    {
-        _acl.createPermission(_dandelionVoting, _tokenManager, _tokenManager.BURN_ROLE(), _dandelionVoting);
-        _acl.createPermission(_dandelionVoting, _tokenManager, _tokenManager.MINT_ROLE(), _dandelionVoting);
     }
 
     function _createTollgatePermissions(ACL _acl, ITollgate _tollgate, DandelionVoting _dandelionVoting) internal {
@@ -349,6 +400,70 @@ contract GardensTemplate is BaseTemplate {
         internal
     {
         _acl.createPermission(ANY_ENTITY, _convictionVoting, _convictionVoting.CREATE_PROPOSALS_ROLE(), _dandelionVoting);
+    }
+
+    function _createCustomTokenManagerPermissions(Kernel _dao, ACL _acl) internal {
+        (,, DandelionVoting dandelionVoting,, TokenManager tokenManager) = _getDeployedContractsTxOne();
+        (, Presale presale, MarketMaker marketMaker,,) = _getDeployedContractsTxThree();
+
+        address[] memory grantees = new address[](2);
+        grantees[0] = address(marketMaker);
+        grantees[1] = address(presale);
+        _acl.createPermission(marketMaker, tokenManager, tokenManager.MINT_ROLE(), dandelionVoting);
+        _acl.createPermission(presale, tokenManager, tokenManager.ISSUE_ROLE(), dandelionVoting);
+        _acl.createPermission(presale, tokenManager, tokenManager.ASSIGN_ROLE(), dandelionVoting);
+        _acl.createPermission(presale, tokenManager, tokenManager.REVOKE_VESTINGS_ROLE(), dandelionVoting);
+        _createPermissions(_acl, grantees, tokenManager, tokenManager.BURN_ROLE(), dandelionVoting);
+    }
+
+    function _createFundraisingPermissions(Kernel _dao, ACL _acl) internal {
+        (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
+        (Agent reserve, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+
+        // reserve
+        address[] memory grantees = new address[](2);
+        grantees[0] = address(tap);
+        grantees[1] = address(marketMaker);
+        _acl.createPermission(dandelionVoting, reserve, reserve.SAFE_EXECUTE_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, reserve, reserve.ADD_PROTECTED_TOKEN_ROLE(), dandelionVoting);
+        _createPermissions(_acl, grantees, reserve, reserve.TRANSFER_ROLE(), dandelionVoting);
+        // presale
+        _acl.createPermission(controller, presale, presale.OPEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, presale, presale.CONTRIBUTE_ROLE(), dandelionVoting);
+        // market maker
+        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_FEES_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.ADD_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+        // tap
+        _acl.createPermission(controller, tap, tap.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.ADD_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.UPDATE_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.RESET_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(controller, tap, tap.WITHDRAW_ROLE(), dandelionVoting);
+        // controller
+        // ADD_COLLATERAL_TOKEN_ROLE is handled later [after collaterals have been added]
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_FEES_ROLE(), dandelionVoting);
+        // acl.createPermission(shareVoting, controller, controller.ADD_COLLATERAL_TOKEN_ROLE(), shareVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.ADD_TOKEN_TAP_ROLE(), dandelionVoting);
+        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_TOKEN_TAP_ROLE(), dandelionVoting);
+        _acl.createPermission(ANY_ENTITY, controller, controller.OPEN_PRESALE_ROLE(), dandelionVoting);
+        _acl.createPermission(presale, controller, controller.OPEN_TRADING_ROLE(), dandelionVoting);
+        _acl.createPermission(address(-1), controller, controller.CONTRIBUTE_ROLE(), dandelionVoting);
+        _acl.createPermission(address(-1), controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
+        _acl.createPermission(address(-1), controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+        _acl.createPermission(address(-1), controller, controller.WITHDRAW_ROLE(), dandelionVoting);
     }
 
     // Validation functions //
@@ -402,6 +517,16 @@ contract GardensTemplate is BaseTemplate {
             deployedContracts.tap,
             deployedContracts.controller
         );
+    }
+
+    function _storeCollateralTokens(address[] _collateralTokens) internal {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        deployedContracts.collateralTokens = _collateralTokens;
+    }
+
+    function _getCollateralTokens() internal returns (address[]) {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        return deployedContracts.collateralTokens;
     }
 
     function _deleteStoredContracts() internal {

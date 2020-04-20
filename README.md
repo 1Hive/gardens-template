@@ -62,9 +62,9 @@ $ npm run deploy:rpc
 - Run `npm install` in the `apps/presale` folder
 - Execute `aragon apm publish major --skip-confirmation` in the `apps/presale` folder
 
-11) Create a new Gardens Dao on the devchain (each time this is called the `DAO_ID` const or `daoid` argument must be changed to something unused):
+11) Create a new Gardens Dao on the devchain:
 ```
-$ npx truffle exec scripts/new-dao.js --network rpc --daoid <unique id>
+$ npx truffle exec scripts/new-dao.js --network rpc
 ```
 
 12) Copy the output DAO address into this URL and open it in a web browser:

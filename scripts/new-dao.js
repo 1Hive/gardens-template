@@ -1,7 +1,7 @@
 const GardensTemplate = artifacts.require("GardensTemplate")
 const Token = artifacts.require("Token")
 
-const DAO_ID = "05" // Note this must be unique for each deployment, change it for subsequent deployments
+const DAO_ID = "gardens" + Math.random() // Note this must be unique for each deployment, change it for subsequent deployments
 const INITIAL_SUPERVISOR = "0xb4124cEB3451635DAcedd11767f004d8a28c6eE7"
 const NETWORK_ARG = "--network"
 const DAO_ID_ARG = "--daoid"
@@ -51,11 +51,17 @@ const VESTING_CLIFF_PERIOD = 90 * DAYS
 const VESTING_COMPLETE_PERIOD = 360 * DAYS
 const PERCENT_SUPPLY_OFFERED = 0.9 * PPM // 90%
 const PERCENT_FUNDING_FOR_BENEFICIARY = 0.25 * PPM // 25%
-
+const OPEN_DATE = 0
+const BATCH_BLOCKS = 1
 const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
 const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 
-const BATCH_BLOCKS = 1
+// Create dao transaction four config
+const VIRTUAL_SUPPLIES = [Math.pow(10, 23), Math.pow(10, 23)]
+const VIRTUAL_BALANCES = [Math.pow(10, 22), Math.pow(10, 22)]
+const SLIPPAGES = [2 * Math.pow(10, 17), Math.pow(10, 18)]
+const RATE = 5 * Math.pow(10, 15)
+const FLOOR = Math.pow(10, 21)
 
 module.exports = async (callback) => {
   try {
@@ -94,7 +100,7 @@ module.exports = async (callback) => {
       VESTING_COMPLETE_PERIOD,
       PERCENT_SUPPLY_OFFERED,
       PERCENT_FUNDING_FOR_BENEFICIARY,
-      0,
+      OPEN_DATE,
       BATCH_BLOCKS,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
@@ -102,7 +108,17 @@ module.exports = async (callback) => {
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
-    const createDaoTxFourReceipt = await gardensTemplate.createDaoTxFour(daoId())
+    console.log(new web3.BigNumber(1))
+
+    const createDaoTxFourReceipt = await gardensTemplate.createDaoTxFour(
+      daoId(),
+      [new web3.BigNumber(1), new web3.BigNumber(1)]
+      // VIRTUAL_SUPPLIES
+      // VIRTUAL_BALANCES
+      // SLIPPAGES,
+      // RATE,
+      // FLOOR
+    )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 
 
