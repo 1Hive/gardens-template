@@ -115,7 +115,8 @@ contract GardensTemplate is BaseTemplate {
 
         if (_useConvictionAsFinance) {
             IConvictionVoting convictionVoting = _installConvictionVoting(dao, tokenManager.token(), agentOrVault, _convictionVotingRequestToken);
-            _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting, agentOrVault);
+            _createVaultPermissions(acl, agentOrVault, _convictionVoting, dandelionVoting);
+            _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
         } else {
             Finance finance = _installFinanceApp(dao, agentOrVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
             _createVaultPermissions(acl, agentOrVault, finance, dandelionVoting);
@@ -344,12 +345,10 @@ contract GardensTemplate is BaseTemplate {
         _acl.createPermission(_dandelionVoting, _redemptions, _redemptions.REMOVE_TOKEN_ROLE(), _dandelionVoting);
     }
 
-    function _createConvictionVotingPermissions(ACL _acl, IConvictionVoting _convictionVoting, DandelionVoting _dandelionVoting, Vault _agentOrVault)
+    function _createConvictionVotingPermissions(ACL _acl, IConvictionVoting _convictionVoting, DandelionVoting _dandelionVoting)
         internal
     {
         _acl.createPermission(ANY_ENTITY, _convictionVoting, _convictionVoting.CREATE_PROPOSALS_ROLE(), _dandelionVoting);
-        _acl.createPermission(_convictionVoting, _agentOrVault, _agentOrVault.TRANSFER_ROLE(), _dandelionVoting);
-
     }
 
     // Validation functions //
