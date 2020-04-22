@@ -8,5 +8,6 @@ module.exports = (callback) => {
     .then(template => {
       console.log("Gardens Template address: ", template.address)
     })
+    .catch(error => console.log(error))
     .finally(callback)
 }

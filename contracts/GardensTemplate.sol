@@ -15,21 +15,36 @@ import "@ablack/fundraising-tap/contracts/Tap.sol";
 // TODO: Error checking for cached contracts
 contract GardensTemplate is BaseTemplate {
 
-    string constant private ERROR_MISSING_MEMBERS = "MEMBERSHIP_MISSING_MEMBERS";
-    string constant private ERROR_BAD_VOTE_SETTINGS = "MEMBERSHIP_BAD_VOTE_SETTINGS";
+    string constant private ERROR_MISSING_MEMBERS = "MISS_MEMBS";
+    string constant private ERROR_BAD_VOTE_SETTINGS = "VOTE_SETT";
 
+    /**
+    * bytes32 private constant DANDELION_VOTING_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("dandelion-voting")));
+    * bytes32 private constant REDEMPTIONS_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("redemptions")));
+    * bytes32 private constant CONVICTION_VOTING_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("conviction-voting")));
+    * bytes32 private constant TOLLGATE_APP_ID = apmNamehash("tollgate");
+    * bytes32 private constant BANCOR_FORMULA_ID = apmNamehash("bancor-formula");
+    * bytes32 private constant PRESALE_ID = apmNamehash("presale");
+    * bytes32 private constant MARKET_MAKER_ID = apmNamehash("batched-bancor-market-maker");
+    * bytes32 private constant ARAGON_FUNDRAISING_ID = apmNamehash("aragon-fundraising");
+    * bytes32 private constant TAP_ID = apmNamehash("tap");
+    */
+    bytes32 private constant DANDELION_VOTING_APP_ID = 0xf1a28fda6bef4895d111ff59fd86be63fa1a9d61868303e3ff6368363b4c687f;
+    bytes32 private constant REDEMPTIONS_APP_ID = 0xbf9fefd9508fe20f068aa3714e9beb8c4fc6dea33dc4c75371b96140d6350d20;
+    bytes32 private constant CONVICTION_VOTING_APP_ID = 0x589851b3734f6578a92f33bfc26877a1166b95238be1f484deeaac6383d14c38;
+    bytes32 private constant TOLLGATE_APP_ID = 0x7075e547e73484f0736b2160fcfb010b4f32b751fc729c25b677a0347d9b4246;
     bytes32 private constant BANCOR_FORMULA_ID = 0xd71dde5e4bea1928026c1779bde7ed27bd7ef3d0ce9802e4117631eb6fa4ed7d;
     bytes32 private constant PRESALE_ID = 0x5de9bbdeaf6584c220c7b7f1922383bcd8bbcd4b48832080afd9d5ebf9a04df5;
     bytes32 private constant MARKET_MAKER_ID= 0xc2bb88ab974c474221f15f691ed9da38be2f5d37364180cec05403c656981bf0;
     bytes32 private constant ARAGON_FUNDRAISING_ID = 0x668ac370eed7e5861234d1c0a1e512686f53594fcb887e5bcecc35675a4becac;
     bytes32 private constant TAP_ID = 0x82967efab7144b764bc9bca2f31a721269b6618c0ff4e50545737700a5e9c9dc;
 
-    bool constant private TOKEN_TRANSFERABLE = false;
-    uint8 constant private TOKEN_DECIMALS = uint8(0);
-    uint256 constant private TOKEN_MAX_PER_ACCOUNT = uint256(-1);
-    uint64 constant private DEFAULT_FINANCE_PERIOD = uint64(30 days);
-    address constant private ANY_ENTITY = address(-1);
-    uint8 constant ORACLE_PARAM_ID = 203;
+    bool private constant TOKEN_TRANSFERABLE = false;
+    uint8 private constant TOKEN_DECIMALS = uint8(0);
+    uint256 private constant TOKEN_MAX_PER_ACCOUNT = uint256(-1);
+    uint64 private constant DEFAULT_FINANCE_PERIOD = uint64(30 days);
+    address private constant ANY_ENTITY = address(-1);
+    uint8 private constant ORACLE_PARAM_ID = 203;
     enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
     // TODO: Pass these in?
@@ -75,7 +90,8 @@ contract GardensTemplate is BaseTemplate {
     )
         public
     {
-        _ensureMembershipSettings(_members, _votingSettings);
+        require(_members.length > 0, ERROR_MISSING_MEMBERS);
+        require(_votingSettings.length == 5, ERROR_BAD_VOTE_SETTINGS);
 
         (Kernel dao, ACL acl) = _createDAO();
         MiniMeToken voteToken = _createToken(_voteTokenName, _voteTokenSymbol, TOKEN_DECIMALS);
@@ -83,8 +99,8 @@ contract GardensTemplate is BaseTemplate {
         DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
         TokenManager tokenManager = _installTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
 
-        // Mint tokens (will be done using fundraising)
-        _mintTokens(acl, tokenManager, _members, 1);
+//       Mint tokens (will be done using fundraising)
+//        _mintTokens(acl, tokenManager, _members, 1);
 
         // Set up permissions
         if (_useAgentAsVault) {
@@ -92,7 +108,6 @@ contract GardensTemplate is BaseTemplate {
         }
         _createEvmScriptsRegistryPermissions(acl, dandelionVoting, dandelionVoting);
         _createCustomVotingPermissions(acl, dandelionVoting, tokenManager);
-//        _createCustomTokenManagerPermissions(acl, tokenManager, dandelionVoting);
 
         _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault, tokenManager);
     }
@@ -170,44 +185,44 @@ contract GardensTemplate is BaseTemplate {
 
     function createDaoTxFour(
         string _id,
-        uint256[] _virtualSupplies
-//        uint256[2] _virtualBalances
-//        uint256[2] _slippages,
-//        uint256    _rateDAI,
-//        uint256    _floorDAI
+        uint256[2] _virtualSupplies,
+        uint256[2] _virtualBalances,
+        uint256[2] _slippages,
+        uint256 _rateDAI,
+        uint256 _floorDAI
     )
-        external
+        public
     {
         _validateId(_id);
         (Kernel dao, ACL acl, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
 
-//        _setupCollaterals(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _rateDAI, _floorDAI);
+        _setupCollateralTokens(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _rateDAI, _floorDAI);
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
         _deleteStoredContracts();
     }
 
-    function _setupCollaterals(
-        Kernel     _dao,
+    function _setupCollateralTokens(
+        Kernel _dao,
         ACL _acl,
         uint256[2] _virtualSupplies,
         uint256[2] _virtualBalances,
         uint256[2] _slippages,
-        uint256    _rateDAI,
-        uint256    _floorDAI
+        uint256 _rateDAI,
+        uint256 _floorDAI
     )
         internal
     {
         (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
         (,,,, Controller controller) = _getDeployedContractsTxThree();
-        address[] memory collaterals = _getCollateralTokens();
+        address[] memory collateralTokens = _getCollateralTokens();
 
         // create and grant ADD_COLLATERAL_TOKEN_ROLE to this template
         _createPermissionForTemplate(_acl, address(controller), controller.ADD_COLLATERAL_TOKEN_ROLE());
         // add primary collateral both as a protected collateral and a tapped token
         controller.addCollateralToken(
-            collaterals[0],
+            collateralTokens[0],
             _virtualSupplies[0],
             _virtualBalances[0],
             PRIMARY_RESERVE_RATIO,
@@ -217,7 +232,7 @@ contract GardensTemplate is BaseTemplate {
         );
         // add secondary collateral as a protected collateral [but not as a tapped token]
         controller.addCollateralToken(
-            collaterals[1],
+            collateralTokens[1],
             _virtualSupplies[1],
             _virtualBalances[1],
             SECONDARY_RESERVE_RATIO,
@@ -235,8 +250,7 @@ contract GardensTemplate is BaseTemplate {
     function _installDandelionVotingApp(Kernel _dao, MiniMeToken _voteToken, uint64[5] _votingSettings)
         internal returns (DandelionVoting)
     {
-        bytes32 dandelionVotingAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("dandelion-voting")));
-        DandelionVoting dandelionVoting = DandelionVoting(_installNonDefaultApp(_dao, dandelionVotingAppId));
+        DandelionVoting dandelionVoting = DandelionVoting(_installNonDefaultApp(_dao, DANDELION_VOTING_APP_ID));
         dandelionVoting.initialize(_voteToken, _votingSettings[0], _votingSettings[1], _votingSettings[2],
             _votingSettings[3], _votingSettings[4]);
         return dandelionVoting;
@@ -245,8 +259,7 @@ contract GardensTemplate is BaseTemplate {
     function _installTollgate(Kernel _dao, ERC20 _tollgateFeeToken, uint256 _tollgateFeeAmount, address _tollgateFeeDestination)
         internal returns (ITollgate)
     {
-        bytes32 tollgateAppId = apmNamehash("tollgate");
-        ITollgate tollgate = ITollgate(_installNonDefaultApp(_dao, tollgateAppId));
+        ITollgate tollgate = ITollgate(_installNonDefaultApp(_dao, TOLLGATE_APP_ID));
         tollgate.initialize(_tollgateFeeToken, _tollgateFeeAmount, _tollgateFeeDestination);
         return tollgate;
     }
@@ -254,8 +267,7 @@ contract GardensTemplate is BaseTemplate {
     function _installRedemptions(Kernel _dao, Vault _agentOrVault, TokenManager _tokenManager, address[] _redeemableTokens)
         internal returns (Redemptions)
     {
-        bytes32 redemptionsAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("redemptions")));
-        Redemptions redemptions = Redemptions(_installNonDefaultApp(_dao, redemptionsAppId));
+        Redemptions redemptions = Redemptions(_installNonDefaultApp(_dao, REDEMPTIONS_APP_ID));
         redemptions.initialize(_agentOrVault, _tokenManager, _redeemableTokens);
         return redemptions;
     }
@@ -263,8 +275,7 @@ contract GardensTemplate is BaseTemplate {
     function _installConvictionVoting(Kernel _dao, MiniMeToken _stakeToken, Vault _agentOrVault, address _requestToken)
         internal returns (IConvictionVoting)
     {
-        bytes32 convictionVotingAppId = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("conviction-voting")));
-        IConvictionVoting convictionVoting = IConvictionVoting(_installNonDefaultApp(_dao, convictionVotingAppId));
+        IConvictionVoting convictionVoting = IConvictionVoting(_installNonDefaultApp(_dao, CONVICTION_VOTING_APP_ID));
         convictionVoting.initialize(_stakeToken, _agentOrVault, _requestToken);
         return convictionVoting;
     }
@@ -464,13 +475,6 @@ contract GardensTemplate is BaseTemplate {
         _acl.createPermission(address(-1), controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
         _acl.createPermission(address(-1), controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
         _acl.createPermission(address(-1), controller, controller.WITHDRAW_ROLE(), dandelionVoting);
-    }
-
-    // Validation functions //
-
-    function _ensureMembershipSettings(address[] memory _members, uint64[5] memory _votingSettings) private pure {
-        require(_members.length > 0, ERROR_MISSING_MEMBERS);
-        require(_votingSettings.length == 5, ERROR_BAD_VOTE_SETTINGS);
     }
 
     // Temporary Storage functions //

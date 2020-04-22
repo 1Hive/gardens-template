@@ -80,7 +80,6 @@ module.exports = async (callback) => {
       VOTING_SETTINGS,
       USE_AGENT_AS_VAULT
     );
-    // console.log(`DEBUG: ${createDaoTxOneReceipt.logs.find(x => x.event === "DEBUG")} `)
     console.log(`Tx One Complete. DAO address: ${createDaoTxOneReceipt.logs.find(x => x.event === "DeployDao").args.dao} Gas used: ${createDaoTxOneReceipt.receipt.gasUsed} `)
 
     const createDaoTxTwoReceipt = await gardensTemplate.createDaoTxTwo(
@@ -104,20 +103,17 @@ module.exports = async (callback) => {
       BATCH_BLOCKS,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
-      [HNY.address]
+      [HNY.address, DAI.address]
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
-    console.log(new web3.BigNumber(1))
-
     const createDaoTxFourReceipt = await gardensTemplate.createDaoTxFour(
       daoId(),
-      [new web3.BigNumber(1), new web3.BigNumber(1)]
-      // VIRTUAL_SUPPLIES
-      // VIRTUAL_BALANCES
-      // SLIPPAGES,
-      // RATE,
-      // FLOOR
+      VIRTUAL_SUPPLIES,
+      VIRTUAL_BALANCES,
+      SLIPPAGES,
+      RATE,
+      FLOOR
     )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 

@@ -38,13 +38,13 @@ $ npm run deploy:rpc
 - Download https://github.com/1Hive/dandelion-voting-app
 - Run `npm install` in the root folder
 - Execute `npm run build` in the root folder
-- Execute `npm run publish:major` in the root folder
+- Execute `aragon apm publish major --files dist --skip-confirmation` in the root folder
 
 8) Deploy the Redemptions app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
 - Download https://github.com/1Hive/redemptions-app
 - Run `npm install` in the root folder
 - Execute `npm run build` in the root folder
-- Execute `npm run publish:major` in the root folder
+- Execute `aragon apm publish major --files dist --skip-confirmation` in the root folder
 
 9) Deploy the Tollgate app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
 - Download https://github.com/aragonone/tollgate
