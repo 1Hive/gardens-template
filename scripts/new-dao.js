@@ -39,14 +39,14 @@ const VOTING_SETTINGS = [SUPPORT_REQUIRED, MIN_ACCEPTANCE_QUORUM, VOTE_DURATION_
 const USE_AGENT_AS_VAULT = false
 
 // Create dao transaction two config
-const TOLLGATE_FEE = 1e18 // 1 DAI
+const TOLLGATE_FEE = 1e18
 const USE_CONVICTION_AS_FINANCE = true
 const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 
 // Create dao transaction three config
 const PRESALE_GOAL = 100e18
 const PRESALE_PERIOD = 14 * DAYS
-const PRESALE_EXCHANGE_RATE = 2 * PPM
+const PRESALE_EXCHANGE_RATE = 1 // * PPM
 const VESTING_CLIFF_PERIOD = 90 * DAYS
 const VESTING_COMPLETE_PERIOD = 360 * DAYS
 const PERCENT_SUPPLY_OFFERED = 0.9 * PPM // 90%
@@ -59,7 +59,7 @@ const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 // Create dao transaction four config
 const VIRTUAL_SUPPLIES = [Math.pow(10, 23), Math.pow(10, 23)]
 const VIRTUAL_BALANCES = [Math.pow(10, 22), Math.pow(10, 22)]
-const SLIPPAGES = [2 * Math.pow(10, 17), Math.pow(10, 18)]
+const SLIPPAGES = [Math.pow(10, 17), Math.pow(10, 18)]
 const RATE = 5 * Math.pow(10, 15)
 const FLOOR = Math.pow(10, 21)
 
@@ -67,11 +67,11 @@ module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
 
-    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
+    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "DAI")
     console.log(`Created HNY Token: ${HNY.address}`)
 
-    const DAI = await Token.new(INITIAL_SUPERVISOR, "DAI", "DAI")
-    console.log(`Created DAI Token: ${DAI.address}`)
+    const ANT = await Token.new(INITIAL_SUPERVISOR, "Aragon Network", "ANT")
+    console.log(`Created ANT Token: ${ANT.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
       ORG_TOKEN_NAME,
@@ -86,7 +86,7 @@ module.exports = async (callback) => {
       HNY.address,
       TOLLGATE_FEE,
       USE_CONVICTION_AS_FINANCE,
-      DAI.address,
+      HNY.address,
       FINANCE_PERIOD
     )
     console.log(`Tx Two Complete. Gas used: ${createDaoTxTwoReceipt.receipt.gasUsed}`)
@@ -103,7 +103,7 @@ module.exports = async (callback) => {
       BATCH_BLOCKS,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
-      [HNY.address, DAI.address]
+      [HNY.address, ANT.address]
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
