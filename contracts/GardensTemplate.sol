@@ -46,7 +46,7 @@ contract GardensTemplate is BaseTemplate {
     bytes32 private constant TAP_ID = 0x82967efab7144b764bc9bca2f31a721269b6618c0ff4e50545737700a5e9c9dc;
 
     bool private constant TOKEN_TRANSFERABLE = false;
-    uint8 private constant TOKEN_DECIMALS = uint8(0);
+    uint8 private constant TOKEN_DECIMALS = uint8(18);
     uint256 private constant TOKEN_MAX_PER_ACCOUNT = uint256(-1);
     uint64 private constant DEFAULT_FINANCE_PERIOD = uint64(30 days);
     address private constant ANY_ENTITY = address(-1);

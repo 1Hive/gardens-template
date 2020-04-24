@@ -46,11 +46,11 @@ const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 // Create dao transaction three config
 const PRESALE_GOAL = 100e18
 const PRESALE_PERIOD = 14 * DAYS
-const PRESALE_EXCHANGE_RATE = 1 // * PPM
+const PRESALE_EXCHANGE_RATE = 1 * PPM // * PPM
 const VESTING_CLIFF_PERIOD = 90 * DAYS
 const VESTING_COMPLETE_PERIOD = 360 * DAYS
-const PERCENT_SUPPLY_OFFERED = 0.9 * PPM // 90%
-const PERCENT_FUNDING_FOR_BENEFICIARY = 0.25 * PPM // 25%
+const PERCENT_SUPPLY_OFFERED = 1 * PPM // 100%
+const PERCENT_FUNDING_FOR_BENEFICIARY = 0.50 * PPM // 50%
 const OPEN_DATE = 0
 const BATCH_BLOCKS = 1
 const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
