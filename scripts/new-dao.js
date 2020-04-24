@@ -46,13 +46,15 @@ const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 // Create dao transaction three config
 const PRESALE_GOAL = 100e18
 const PRESALE_PERIOD = 14 * DAYS
-const PRESALE_EXCHANGE_RATE = 1 * PPM // * PPM
+const PRESALE_EXCHANGE_RATE = 1 * PPM
 const VESTING_CLIFF_PERIOD = 90 * DAYS
 const VESTING_COMPLETE_PERIOD = 360 * DAYS
-const PERCENT_SUPPLY_OFFERED = 1 * PPM // 100%
-const PERCENT_FUNDING_FOR_BENEFICIARY = 0.50 * PPM // 50%
+const PRESALE_PERCENT_SUPPLY_OFFERED = 1 * PPM // 100%
+const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.5 * PPM // 50%
 const OPEN_DATE = 0
 const BATCH_BLOCKS = 1
+const BUY_FEE_PCT = 0
+const SELL_FEE_PCT = 0
 const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
 const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 
@@ -60,14 +62,14 @@ const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 const VIRTUAL_SUPPLIES = [Math.pow(10, 23), Math.pow(10, 23)]
 const VIRTUAL_BALANCES = [Math.pow(10, 22), Math.pow(10, 22)]
 const SLIPPAGES = [Math.pow(10, 17), Math.pow(10, 18)]
-const RATE = 5 * Math.pow(10, 15)
-const FLOOR = Math.pow(10, 21)
+const TAP_RATE = 5 * Math.pow(10, 15)
+const TAP_FLOOR = Math.pow(10, 21)
 
 module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
 
-    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "DAI")
+    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
     console.log(`Created HNY Token: ${HNY.address}`)
 
     const ANT = await Token.new(INITIAL_SUPERVISOR, "Aragon Network", "ANT")
@@ -85,6 +87,7 @@ module.exports = async (callback) => {
     const createDaoTxTwoReceipt = await gardensTemplate.createDaoTxTwo(
       HNY.address,
       TOLLGATE_FEE,
+      [HNY.address],
       USE_CONVICTION_AS_FINANCE,
       HNY.address,
       FINANCE_PERIOD
@@ -97,10 +100,12 @@ module.exports = async (callback) => {
       PRESALE_EXCHANGE_RATE,
       VESTING_CLIFF_PERIOD,
       VESTING_COMPLETE_PERIOD,
-      PERCENT_SUPPLY_OFFERED,
-      PERCENT_FUNDING_FOR_BENEFICIARY,
+      PRESALE_PERCENT_SUPPLY_OFFERED,
+      PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY,
       OPEN_DATE,
       BATCH_BLOCKS,
+      BUY_FEE_PCT,
+      SELL_FEE_PCT,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
       [HNY.address, ANT.address]
@@ -112,8 +117,8 @@ module.exports = async (callback) => {
       VIRTUAL_SUPPLIES,
       VIRTUAL_BALANCES,
       SLIPPAGES,
-      RATE,
-      FLOOR
+      TAP_RATE,
+      TAP_FLOOR
     )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 

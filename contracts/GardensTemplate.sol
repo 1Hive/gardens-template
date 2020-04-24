@@ -6,7 +6,8 @@ import "@1hive/apps-redemptions/contracts/Redemptions.sol";
 import "./external/ITollgate.sol";
 import "./external/IConvictionVoting.sol";
 import "@ablack/fundraising-bancor-formula/contracts/BancorFormula.sol";
-import {AragonFundraisingController as Controller} from "@ablack/fundraising-aragon-fundraising/contracts/AragonFundraisingController.sol";
+import {IAragonFundraisingController as Controller} from "./external/IAragonFundraisingController.sol";
+import "@ablack/fundraising-aragon-fundraising/contracts/AragonFundraisingController.sol";
 import {BatchedBancorMarketMaker as MarketMaker} from "@ablack/fundraising-batched-bancor-market-maker/contracts/BatchedBancorMarketMaker.sol";
 import "@ablack/fundraising-presale/contracts/Presale.sol";
 import "@ablack/fundraising-tap/contracts/Tap.sol";
@@ -15,8 +16,8 @@ import "@ablack/fundraising-tap/contracts/Tap.sol";
 // TODO: Error checking for cached contracts
 contract GardensTemplate is BaseTemplate {
 
-    string constant private ERROR_MISSING_MEMBERS = "MISS_MEMBS";
-    string constant private ERROR_BAD_VOTE_SETTINGS = "VOTE_SETT";
+    string constant private ERROR_MISSING_MEMBERS = "WRONG_MEMBS";
+    string constant private ERROR_BAD_VOTE_SETTINGS = "BAD_SETT";
 
     /**
     * bytes32 private constant DANDELION_VOTING_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("dandelion-voting")));
@@ -54,10 +55,6 @@ contract GardensTemplate is BaseTemplate {
     enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
     // TODO: Pass these in?
-    uint256 private constant BUY_FEE_PCT = 0;
-    uint256 private constant SELL_FEE_PCT = 0;
-
-    // TODO: Pass these in?
     uint32 private constant PRIMARY_RESERVE_RATIO = 100000; // 10%
     uint32 private constant SECONDARY_RESERVE_RATIO = 10000;  // 1%
 
@@ -66,9 +63,9 @@ contract GardensTemplate is BaseTemplate {
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
-        Vault agentOrVault;
+        Vault fundingPoolVault;
         TokenManager tokenManager;
-        Agent reserve;
+        Vault reserveVault;
         Presale presale;
         MarketMaker marketMaker;
         Tap tap;
@@ -101,22 +98,23 @@ contract GardensTemplate is BaseTemplate {
 
         (Kernel dao, ACL acl) = _createDAO();
         MiniMeToken voteToken = _createToken(_voteTokenName, _voteTokenSymbol, TOKEN_DECIMALS);
-        Vault agentOrVault = _useAgentAsVault ? _installDefaultAgentApp(dao) : _installVaultApp(dao);
+        Vault fundingPoolVault = _useAgentAsVault ? _installDefaultAgentApp(dao) : _installVaultApp(dao);
         DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
         TokenManager tokenManager = _installTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
 
         if (_useAgentAsVault) {
-            _createAgentPermissions(acl, Agent(agentOrVault), dandelionVoting, dandelionVoting);
+            _createAgentPermissions(acl, Agent(fundingPoolVault), dandelionVoting, dandelionVoting);
         }
         _createEvmScriptsRegistryPermissions(acl, dandelionVoting, dandelionVoting);
         _createCustomVotingPermissions(acl, dandelionVoting, tokenManager);
 
-        _storeDeployedContractsTxOne(dao, acl, dandelionVoting, agentOrVault, tokenManager);
+        _storeDeployedContractsTxOne(dao, acl, dandelionVoting, fundingPoolVault, tokenManager);
     }
 
     function createDaoTxTwo(
         ERC20 _tollgateFeeToken,
         uint256 _tollgateFeeAmount,
+        address[] _redeemableTokens,
         bool _useConvictionAsFinance,
         ERC20 _convictionVotingRequestToken,
         uint64 _financePeriod
@@ -126,22 +124,21 @@ contract GardensTemplate is BaseTemplate {
         (Kernel dao,
         ACL acl,
         DandelionVoting dandelionVoting,
-        Vault agentOrVault,
-        TokenManager tokenManager) = _getDeployedContractsTxOne();
+        Vault fundingPoolVault,) = _getDeployedContractsTxOne();
 
-        ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(agentOrVault));
+        ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(fundingPoolVault));
         _createTollgatePermissions(acl, tollgate, dandelionVoting);
 
-        Redemptions redemptions = _installRedemptions(dao, agentOrVault, tokenManager, new address[](0));
+        Redemptions redemptions = _installRedemptions(dao, fundingPoolVault, senderDeployedContracts[msg.sender].tokenManager, _redeemableTokens);
         _createRedemptionsPermissions(acl, redemptions, dandelionVoting);
 
         if (_useConvictionAsFinance) {
-            IConvictionVoting convictionVoting = _installConvictionVoting(dao, tokenManager.token(), agentOrVault, _convictionVotingRequestToken);
-            _createVaultPermissions(acl, agentOrVault, convictionVoting, dandelionVoting);
+            IConvictionVoting convictionVoting = _installConvictionVoting(dao, senderDeployedContracts[msg.sender].tokenManager.token(), fundingPoolVault, _convictionVotingRequestToken);
+            _createVaultPermissions(acl, fundingPoolVault, convictionVoting, dandelionVoting);
             _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
         } else {
-            Finance finance = _installFinanceApp(dao, agentOrVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
-            _createVaultPermissions(acl, agentOrVault, finance, dandelionVoting);
+            Finance finance = _installFinanceApp(dao, fundingPoolVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
+            _createVaultPermissions(acl, fundingPoolVault, finance, dandelionVoting);
             _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
         }
     }
@@ -156,16 +153,15 @@ contract GardensTemplate is BaseTemplate {
         uint256 _fundingForBeneficiaryPct,
         uint64  _openDate,
         uint256 _batchBlocks,
+        uint256 _buyFeePct,
+        uint256 _sellFeePct,
         uint256 _maxTapRateIncreasePct,
         uint256 _maxTapFloorDecreasePct,
         address[] _collateralTokens
     )
         public
     {
-        (Kernel dao, ACL acl,,,) = _getDeployedContractsTxOne();
-
         _installFundraisingApps(
-            dao,
             _goal,
             _period,
             _exchangeRate,
@@ -175,13 +171,15 @@ contract GardensTemplate is BaseTemplate {
             _fundingForBeneficiaryPct,
             _openDate,
             _batchBlocks,
+            _buyFeePct,
+            _sellFeePct,
             _maxTapRateIncreasePct,
             _maxTapFloorDecreasePct,
             _collateralTokens
         );
 
-        _createCustomTokenManagerPermissions(dao, acl);
-        _createFundraisingPermissions(dao, acl);
+        _createCustomTokenManagerPermissions();
+        _createFundraisingPermissions();
         _storeCollateralTokens(_collateralTokens);
     }
 
@@ -190,15 +188,15 @@ contract GardensTemplate is BaseTemplate {
         uint256[2] _virtualSupplies,
         uint256[2] _virtualBalances,
         uint256[2] _slippages,
-        uint256 _rateDAI,
-        uint256 _floorDAI
+        uint256 _tapRate,
+        uint256 _tapFloor
     )
         public
     {
         _validateId(_id);
         (Kernel dao, ACL acl, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
 
-        _setupCollateralTokens(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _rateDAI, _floorDAI);
+        _setupCollateralTokens(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _tapRate, _tapFloor);
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
@@ -211,8 +209,8 @@ contract GardensTemplate is BaseTemplate {
         uint256[2] _virtualSupplies,
         uint256[2] _virtualBalances,
         uint256[2] _slippages,
-        uint256 _rateDAI,
-        uint256 _floorDAI
+        uint256 _tapRate,
+        uint256 _tapFloor
     )
         internal
     {
@@ -229,8 +227,8 @@ contract GardensTemplate is BaseTemplate {
             _virtualBalances[0],
             PRIMARY_RESERVE_RATIO,
             _slippages[0],
-            _rateDAI,
-            _floorDAI
+            _tapRate,
+            _tapFloor
         );
         // add secondary collateral as a protected collateral [but not as a tapped token]
         controller.addCollateralToken(
@@ -283,7 +281,6 @@ contract GardensTemplate is BaseTemplate {
     }
 
     function _installFundraisingApps(
-        Kernel  _dao,
         uint256 _goal,
         uint64  _period,
         uint256 _exchangeRate,
@@ -293,13 +290,15 @@ contract GardensTemplate is BaseTemplate {
         uint256 _fundingForBeneficiaryPct,
         uint64  _openDate,
         uint256 _batchBlocks,
+        uint256 _buyFeePct,
+        uint256 _sellFeePct,
         uint256 _maxTapRateIncreasePct,
         uint256 _maxTapFloorDecreasePct,
         address[] _collateralTokens
     )
         internal
     {
-        _proxifyFundraisingApps(_dao);
+        _proxifyFundraisingApps();
 
         _initializePresale(
             _goal,
@@ -312,19 +311,21 @@ contract GardensTemplate is BaseTemplate {
             _openDate,
             _collateralTokens
         );
-        _initializeMarketMaker(_batchBlocks);
+        _initializeMarketMaker(_batchBlocks, _buyFeePct, _sellFeePct);
         _initializeTap(_batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
         _initializeController(_collateralTokens);
     }
 
-    function _proxifyFundraisingApps(Kernel _dao) internal {
-        Agent reserve = _installNonDefaultAgentApp(_dao);
-        Presale presale = Presale(_installNonDefaultApp(_dao, PRESALE_ID));
-        MarketMaker marketMaker = MarketMaker(_installNonDefaultApp(_dao, MARKET_MAKER_ID));
-        Tap tap = Tap(_installNonDefaultApp(_dao, TAP_ID));
-        Controller controller = Controller(_installNonDefaultApp(_dao, ARAGON_FUNDRAISING_ID));
+    function _proxifyFundraisingApps() internal {
+        (Kernel dao,,,,) = _getDeployedContractsTxOne();
 
-        _storeDeployedContractsTxThree(reserve, presale, marketMaker, tap, controller);
+        Vault reserveVault = _installVaultApp(dao);
+        Presale presale = Presale(_installNonDefaultApp(dao, PRESALE_ID));
+        MarketMaker marketMaker = MarketMaker(_installNonDefaultApp(dao, MARKET_MAKER_ID));
+        Tap tap = Tap(_installNonDefaultApp(dao, TAP_ID));
+        Controller controller = Controller(_installNonDefaultApp(dao, ARAGON_FUNDRAISING_ID));
+
+        _storeDeployedContractsTxThree(reserveVault, presale, marketMaker, tap, controller);
     }
 
     function _initializePresale(
@@ -342,10 +343,10 @@ contract GardensTemplate is BaseTemplate {
     {
         // Accessing deployed contracts directly due to stack too deep error.
         senderDeployedContracts[msg.sender].presale.initialize(
-            senderDeployedContracts[msg.sender].controller,
+            AragonFundraisingController(senderDeployedContracts[msg.sender].controller),
             senderDeployedContracts[msg.sender].tokenManager,
-            senderDeployedContracts[msg.sender].reserve,
-            senderDeployedContracts[msg.sender].agentOrVault,
+            senderDeployedContracts[msg.sender].reserveVault,
+            senderDeployedContracts[msg.sender].fundingPoolVault,
             _collateralTokens[0],
             _goal,
             _period,
@@ -358,27 +359,27 @@ contract GardensTemplate is BaseTemplate {
         );
     }
 
-    function _initializeMarketMaker(uint256 _batchBlocks) internal {
+    function _initializeMarketMaker(uint256 _batchBlocks, uint256 _buyFeePct, uint256 _sellFeePct) internal {
         IBancorFormula bancorFormula = IBancorFormula(_latestVersionAppBase(BANCOR_FORMULA_ID));
 
-        (Kernel dao,,, Vault beneficiary, TokenManager tokenManager) = _getDeployedContractsTxOne();
-        (Agent reserve,, MarketMaker marketMaker,, Controller controller) = _getDeployedContractsTxThree();
+        (,,, Vault beneficiary, TokenManager tokenManager) = _getDeployedContractsTxOne();
+        (Vault reserveVault,, MarketMaker marketMaker,, Controller controller) = _getDeployedContractsTxThree();
 
-        marketMaker.initialize(controller, tokenManager, bancorFormula, reserve, beneficiary, _batchBlocks, BUY_FEE_PCT, SELL_FEE_PCT);
+        marketMaker.initialize(AragonFundraisingController(controller), tokenManager, bancorFormula, reserveVault, beneficiary, _batchBlocks, _buyFeePct, _sellFeePct);
     }
 
     function _initializeTap(uint256 _batchBlocks, uint256 _maxTapRateIncreasePct, uint256 _maxTapFloorDecreasePct) internal {
         (,,, Vault beneficiary,) = _getDeployedContractsTxOne();
-        (Agent reserve,,, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+        (Vault reserveVault,,, Tap tap, Controller controller) = _getDeployedContractsTxThree();
 
-        tap.initialize(controller, reserve, beneficiary, _batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
+        tap.initialize(AragonFundraisingController(controller), reserveVault, beneficiary, _batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
     }
 
     function _initializeController(address[] _collateralTokens) internal {
-        (Agent reserve, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+        (Vault reserveVault, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
         address[] memory toReset = new address[](1);
         toReset[0] = _collateralTokens[0];
-        controller.initialize(presale, marketMaker, reserve, tap, toReset);
+        controller.initialize(presale, marketMaker, reserveVault, tap, toReset);
     }
 
     // Permission setting functions //
@@ -415,68 +416,68 @@ contract GardensTemplate is BaseTemplate {
         _acl.createPermission(ANY_ENTITY, _convictionVoting, _convictionVoting.CREATE_PROPOSALS_ROLE(), _dandelionVoting);
     }
 
-    function _createCustomTokenManagerPermissions(Kernel _dao, ACL _acl) internal {
+    function _createCustomTokenManagerPermissions() internal {
+        (, ACL acl,,,) = _getDeployedContractsTxOne();
         (,, DandelionVoting dandelionVoting,, TokenManager tokenManager) = _getDeployedContractsTxOne();
         (, Presale presale, MarketMaker marketMaker,,) = _getDeployedContractsTxThree();
 
         address[] memory grantees = new address[](2);
         grantees[0] = address(marketMaker);
         grantees[1] = address(presale);
-        _acl.createPermission(marketMaker, tokenManager, tokenManager.MINT_ROLE(), dandelionVoting);
-        _acl.createPermission(presale, tokenManager, tokenManager.ISSUE_ROLE(), dandelionVoting);
-        _acl.createPermission(presale, tokenManager, tokenManager.ASSIGN_ROLE(), dandelionVoting);
-        _acl.createPermission(presale, tokenManager, tokenManager.REVOKE_VESTINGS_ROLE(), dandelionVoting);
-        _createPermissions(_acl, grantees, tokenManager, tokenManager.BURN_ROLE(), dandelionVoting);
+        acl.createPermission(marketMaker, tokenManager, tokenManager.MINT_ROLE(), dandelionVoting);
+        acl.createPermission(presale, tokenManager, tokenManager.ISSUE_ROLE(), dandelionVoting);
+        acl.createPermission(presale, tokenManager, tokenManager.ASSIGN_ROLE(), dandelionVoting);
+        acl.createPermission(presale, tokenManager, tokenManager.REVOKE_VESTINGS_ROLE(), dandelionVoting);
+        _createPermissions(acl, grantees, tokenManager, tokenManager.BURN_ROLE(), dandelionVoting);
     }
 
-    function _createFundraisingPermissions(Kernel _dao, ACL _acl) internal {
+    function _createFundraisingPermissions() internal {
+        (, ACL acl,,,) = _getDeployedContractsTxOne();
         (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
-        (Agent reserve, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
+        (Vault reserveVault, Presale presale, MarketMaker marketMaker, Tap tap, Controller controller) = _getDeployedContractsTxThree();
 
-        // reserve
+        // reserveVault
         address[] memory grantees = new address[](2);
         grantees[0] = address(tap);
         grantees[1] = address(marketMaker);
-        _acl.createPermission(dandelionVoting, reserve, reserve.SAFE_EXECUTE_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, reserve, reserve.ADD_PROTECTED_TOKEN_ROLE(), dandelionVoting);
-        _createPermissions(_acl, grantees, reserve, reserve.TRANSFER_ROLE(), dandelionVoting);
+        _createPermissions(acl, grantees, reserveVault, reserveVault.TRANSFER_ROLE(), dandelionVoting);
         // presale
-        _acl.createPermission(controller, presale, presale.OPEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, presale, presale.CONTRIBUTE_ROLE(), dandelionVoting);
+        acl.createPermission(controller, presale, presale.OPEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, presale, presale.CONTRIBUTE_ROLE(), dandelionVoting);
         // market maker
-        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_FEES_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.ADD_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, marketMaker, marketMaker.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.OPEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.UPDATE_FEES_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.ADD_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
+        acl.createPermission(controller, marketMaker, marketMaker.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
         // tap
-        _acl.createPermission(controller, tap, tap.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.ADD_TAPPED_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.UPDATE_TAPPED_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.RESET_TAPPED_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(controller, tap, tap.WITHDRAW_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.ADD_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.UPDATE_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.RESET_TAPPED_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(controller, tap, tap.WITHDRAW_ROLE(), dandelionVoting);
         // controller
         // ADD_COLLATERAL_TOKEN_ROLE is handled later [after collaterals have been added]
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_FEES_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_BENEFICIARY_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_FEES_ROLE(), dandelionVoting);
         // acl.createPermission(shareVoting, controller, controller.ADD_COLLATERAL_TOKEN_ROLE(), shareVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.ADD_TOKEN_TAP_ROLE(), dandelionVoting);
-        _acl.createPermission(dandelionVoting, controller, controller.UPDATE_TOKEN_TAP_ROLE(), dandelionVoting);
-        _acl.createPermission(ANY_ENTITY, controller, controller.OPEN_PRESALE_ROLE(), dandelionVoting);
-        _acl.createPermission(presale, controller, controller.OPEN_TRADING_ROLE(), dandelionVoting);
-        _acl.createPermission(address(-1), controller, controller.CONTRIBUTE_ROLE(), dandelionVoting);
-        _acl.createPermission(address(-1), controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
-        _acl.createPermission(address(-1), controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
-        _acl.createPermission(address(-1), controller, controller.WITHDRAW_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.REMOVE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_RATE_INCREASE_PCT_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_MAXIMUM_TAP_FLOOR_DECREASE_PCT_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.ADD_TOKEN_TAP_ROLE(), dandelionVoting);
+        acl.createPermission(dandelionVoting, controller, controller.UPDATE_TOKEN_TAP_ROLE(), dandelionVoting);
+        acl.createPermission(ANY_ENTITY, controller, controller.OPEN_PRESALE_ROLE(), dandelionVoting);
+        acl.createPermission(presale, controller, controller.OPEN_TRADING_ROLE(), dandelionVoting);
+        acl.createPermission(address(-1), controller, controller.CONTRIBUTE_ROLE(), dandelionVoting);
+        acl.createPermission(address(-1), controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
+        acl.createPermission(address(-1), controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+        acl.createPermission(address(-1), controller, controller.WITHDRAW_ROLE(), dandelionVoting);
     }
 
     // Temporary Storage functions //
@@ -488,7 +489,7 @@ contract GardensTemplate is BaseTemplate {
         deployedContracts.dao = _dao;
         deployedContracts.acl = _acl;
         deployedContracts.dandelionVoting = _dandelionVoting;
-        deployedContracts.agentOrVault = _agentOrVault;
+        deployedContracts.fundingPoolVault = _agentOrVault;
         deployedContracts.tokenManager = _tokenManager;
     }
 
@@ -498,26 +499,26 @@ contract GardensTemplate is BaseTemplate {
             deployedContracts.dao,
             deployedContracts.acl,
             deployedContracts.dandelionVoting,
-            deployedContracts.agentOrVault,
+            deployedContracts.fundingPoolVault,
             deployedContracts.tokenManager
         );
     }
 
-    function _storeDeployedContractsTxThree(Agent _reserve, Presale _presale, MarketMaker _marketMaker, Tap _tap, Controller _controller)
+    function _storeDeployedContractsTxThree(Vault _reserve, Presale _presale, MarketMaker _marketMaker, Tap _tap, Controller _controller)
         internal
     {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        deployedContracts.reserve = _reserve;
+        deployedContracts.reserveVault = _reserve;
         deployedContracts.presale = _presale;
         deployedContracts.marketMaker = _marketMaker;
         deployedContracts.tap = _tap;
         deployedContracts.controller = _controller;
     }
 
-    function _getDeployedContractsTxThree() internal returns (Agent, Presale, MarketMaker, Tap, Controller) {
+    function _getDeployedContractsTxThree() internal returns (Vault, Presale, MarketMaker, Tap, Controller) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         return (
-            deployedContracts.reserve,
+            deployedContracts.reserveVault,
             deployedContracts.presale,
             deployedContracts.marketMaker,
             deployedContracts.tap,
