@@ -475,8 +475,13 @@ contract GardensTemplate is BaseTemplate {
         acl.createPermission(ANY_ENTITY, controller, controller.OPEN_PRESALE_ROLE(), dandelionVoting);
         acl.createPermission(presale, controller, controller.OPEN_TRADING_ROLE(), dandelionVoting);
         acl.createPermission(address(-1), controller, controller.CONTRIBUTE_ROLE(), dandelionVoting);
-        acl.createPermission(address(-1), controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
-        acl.createPermission(address(-1), controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+
+        acl.createPermission(ANY_ENTITY, controller, controller.OPEN_BUY_ORDER_ROLE(), dandelionVoting);
+
+        acl.createPermission(ANY_ENTITY, controller, controller.OPEN_SELL_ORDER_ROLE(), address(this));
+        _setOracle(acl, ANY_ENTITY, controller, controller.OPEN_SELL_ORDER_ROLE(), dandelionVoting);
+        acl.setPermissionManager(dandelionVoting, controller, controller.OPEN_SELL_ORDER_ROLE());
+
         acl.createPermission(address(-1), controller, controller.WITHDRAW_ROLE(), dandelionVoting);
     }
 
