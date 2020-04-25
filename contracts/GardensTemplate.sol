@@ -2,6 +2,7 @@ pragma solidity 0.4.24;
 
 import "@aragon/templates-shared/contracts/BaseTemplate.sol";
 import "@1hive/apps-dandelion-voting/contracts/DandelionVoting.sol";
+import "@1hive/apps-token-manager/contracts/HookedTokenManager.sol";
 import "@1hive/apps-redemptions/contracts/Redemptions.sol";
 import "./external/ITollgate.sol";
 import "./external/IConvictionVoting.sol";
@@ -18,6 +19,8 @@ contract GardensTemplate is BaseTemplate {
 
     string constant private ERROR_MISSING_MEMBERS = "WRONG_MEMBS";
     string constant private ERROR_BAD_VOTE_SETTINGS = "BAD_SETT";
+
+    bytes32 constant internal TOKEN_MANAGER_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("token-manager")));
 
     /**
     * bytes32 private constant DANDELION_VOTING_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("dandelion-voting")));
@@ -46,7 +49,7 @@ contract GardensTemplate is BaseTemplate {
     bytes32 private constant ARAGON_FUNDRAISING_ID = 0x668ac370eed7e5861234d1c0a1e512686f53594fcb887e5bcecc35675a4becac;
     bytes32 private constant TAP_ID = 0x82967efab7144b764bc9bca2f31a721269b6618c0ff4e50545737700a5e9c9dc;
 
-    bool private constant TOKEN_TRANSFERABLE = false;
+    bool private constant TOKEN_TRANSFERABLE = true;
     uint8 private constant TOKEN_DECIMALS = uint8(18);
     uint256 private constant TOKEN_MAX_PER_ACCOUNT = uint256(-1);
     uint64 private constant DEFAULT_FINANCE_PERIOD = uint64(30 days);
@@ -60,7 +63,7 @@ contract GardensTemplate is BaseTemplate {
         ACL acl;
         DandelionVoting dandelionVoting;
         Vault fundingPoolVault;
-        TokenManager tokenManager;
+        HookedTokenManager tokenManager;
         Vault reserveVault;
         Presale presale;
         MarketMaker marketMaker;
@@ -96,7 +99,7 @@ contract GardensTemplate is BaseTemplate {
         MiniMeToken voteToken = _createToken(_voteTokenName, _voteTokenSymbol, TOKEN_DECIMALS);
         Vault fundingPoolVault = _useAgentAsVault ? _installDefaultAgentApp(dao) : _installVaultApp(dao);
         DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
-        TokenManager tokenManager = _installTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
+        HookedTokenManager tokenManager = _installHookedTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
 
         if (_useAgentAsVault) {
             _createAgentPermissions(acl, Agent(fundingPoolVault), dandelionVoting, dandelionVoting);
@@ -130,8 +133,12 @@ contract GardensTemplate is BaseTemplate {
 
         if (_useConvictionAsFinance) {
             IConvictionVoting convictionVoting = _installConvictionVoting(dao, senderDeployedContracts[msg.sender].tokenManager.token(), fundingPoolVault, _convictionVotingRequestToken);
+            _createPermissionForTemplate(acl, senderDeployedContracts[msg.sender].tokenManager, senderDeployedContracts[msg.sender].tokenManager.SET_HOOK_ROLE());
+            senderDeployedContracts[msg.sender].tokenManager.registerHook(address(convictionVoting));
+            // _removePermissionFromTemplate(acl, senderDeployedContracts[msg.sender].tokenManager, senderDeployedContracts[msg.sender].tokenManager.SET_HOOK_ROLE());
             _createVaultPermissions(acl, fundingPoolVault, convictionVoting, dandelionVoting);
             _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
+
         } else {
             Finance finance = _installFinanceApp(dao, fundingPoolVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
             _createVaultPermissions(acl, fundingPoolVault, finance, dandelionVoting);
@@ -201,6 +208,20 @@ contract GardensTemplate is BaseTemplate {
     }
 
     // App installation/setup functions //
+
+    function _installHookedTokenManagerApp(
+      Kernel _dao,
+      MiniMeToken _token,
+      bool _transferable,
+      uint256 _maxAccountTokens
+    )
+      internal returns (HookedTokenManager)
+    {
+        HookedTokenManager tokenManager = HookedTokenManager(_installDefaultApp(_dao, TOKEN_MANAGER_APP_ID));
+        _token.changeController(tokenManager);
+        tokenManager.initialize(_token, _transferable, _maxAccountTokens);
+        return tokenManager;
+    }
 
     function _installDandelionVotingApp(Kernel _dao, MiniMeToken _voteToken, uint64[5] _votingSettings)
         internal returns (DandelionVoting)
@@ -470,7 +491,7 @@ contract GardensTemplate is BaseTemplate {
 
     // Temporary Storage functions //
 
-    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, TokenManager _tokenManager)
+    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, HookedTokenManager _tokenManager)
         internal
     {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
@@ -481,7 +502,7 @@ contract GardensTemplate is BaseTemplate {
         deployedContracts.tokenManager = _tokenManager;
     }
 
-    function _getDeployedContractsTxOne() internal returns (Kernel, ACL, DandelionVoting, Vault, TokenManager) {
+    function _getDeployedContractsTxOne() internal returns (Kernel, ACL, DandelionVoting, Vault, HookedTokenManager) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         return (
             deployedContracts.dao,
