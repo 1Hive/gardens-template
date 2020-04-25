@@ -44,7 +44,7 @@ const USE_CONVICTION_AS_FINANCE = true
 const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 
 // Create dao transaction three config
-const PRESALE_GOAL = 100e18
+const PRESALE_GOAL = 1000e18
 const PRESALE_PERIOD = 14 * DAYS
 const PRESALE_EXCHANGE_RATE = 1 * PPM
 const VESTING_CLIFF_PERIOD = 90 * DAYS
@@ -53,16 +53,16 @@ const PRESALE_PERCENT_SUPPLY_OFFERED = 1 * PPM // 100%
 const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.5 * PPM // 50%
 const OPEN_DATE = 0
 const BATCH_BLOCKS = 1
-const BUY_FEE_PCT = 0
-const SELL_FEE_PCT = 0
+const BUY_FEE_PCT = 25 * Math.pow(10, 16)
+const SELL_FEE_PCT = 25 * Math.pow(10, 16)
 const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
 const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 
 // Create dao transaction four config
-const VIRTUAL_SUPPLIES = [Math.pow(10, 23), Math.pow(10, 23)]
-const VIRTUAL_BALANCES = [Math.pow(10, 22), Math.pow(10, 22)]
-const SLIPPAGES = [Math.pow(10, 17), Math.pow(10, 18)]
-const TAP_RATE = 5 * Math.pow(10, 15)
+const VIRTUAL_SUPPLIES = [2, 2]
+const VIRTUAL_BALANCES = [1, 1]
+const SLIPPAGES = [2 * Math.pow(10, 17), Math.pow(10, 18)]
+const TAP_RATE =  1 * PPM
 const TAP_FLOOR = Math.pow(10, 21)
 
 module.exports = async (callback) => {
