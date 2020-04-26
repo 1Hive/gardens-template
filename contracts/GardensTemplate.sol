@@ -56,10 +56,9 @@ contract GardensTemplate is BaseTemplate {
 
     // TODO: Pass these in?
     uint32 private constant PRIMARY_RESERVE_RATIO = 100000; // 10%
-    uint32 private constant SECONDARY_RESERVE_RATIO = 10000;  // 1%
 
     struct DeployedContracts {
-        address[] collateralTokens;
+        address[] collateralToken;
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
@@ -157,7 +156,7 @@ contract GardensTemplate is BaseTemplate {
         uint256 _sellFeePct,
         uint256 _maxTapRateIncreasePct,
         uint256 _maxTapFloorDecreasePct,
-        address[] _collateralTokens
+        address[] _collateralToken
     )
         public
     {
@@ -175,19 +174,20 @@ contract GardensTemplate is BaseTemplate {
             _sellFeePct,
             _maxTapRateIncreasePct,
             _maxTapFloorDecreasePct,
-            _collateralTokens
+            _collateralToken
         );
 
         _createCustomTokenManagerPermissions();
         _createFundraisingPermissions();
-        _storeCollateralTokens(_collateralTokens);
+        _storeCollateralToken(_collateralToken);
     }
 
     function createDaoTxFour(
         string _id,
-        uint256[2] _virtualSupplies,
-        uint256[2] _virtualBalances,
-        uint256[2] _slippages,
+        uint256 _virtualSupply,
+        uint256 _virtualBalance,
+        uint32 _reserveRatio,
+        uint256 _slippage,
         uint256 _tapRate,
         uint256 _tapFloor
     )
@@ -196,19 +196,20 @@ contract GardensTemplate is BaseTemplate {
         _validateId(_id);
         (Kernel dao, ACL acl, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
 
-        _setupCollateralTokens(dao, acl, _virtualSupplies, _virtualBalances, _slippages, _tapRate, _tapFloor);
+        _setupCollateralToken(dao, acl, _virtualSupply, _virtualBalance, _reserveRatio, _slippage, _tapRate, _tapFloor);
 
         _transferRootPermissionsFromTemplateAndFinalizeDAO(dao, dandelionVoting);
         _registerID(_id, dao);
         _deleteStoredContracts();
     }
 
-    function _setupCollateralTokens(
+    function _setupCollateralToken(
         Kernel _dao,
         ACL _acl,
-        uint256[2] _virtualSupplies,
-        uint256[2] _virtualBalances,
-        uint256[2] _slippages,
+        uint256 _virtualSupply,
+        uint256 _virtualBalance,
+        uint32 _reserveRatio,
+        uint256 _slippage,
         uint256 _tapRate,
         uint256 _tapFloor
     )
@@ -216,29 +217,19 @@ contract GardensTemplate is BaseTemplate {
     {
         (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
         (,,,, Controller controller) = _getDeployedContractsTxThree();
-        address[] memory collateralTokens = _getCollateralTokens();
+        address[] memory collateralToken = _getCollateralToken();
 
         // create and grant ADD_COLLATERAL_TOKEN_ROLE to this template
         _createPermissionForTemplate(_acl, address(controller), controller.ADD_COLLATERAL_TOKEN_ROLE());
         // add primary collateral both as a protected collateral and a tapped token
         controller.addCollateralToken(
-            collateralTokens[0],
-            _virtualSupplies[0],
-            _virtualBalances[0],
-            PRIMARY_RESERVE_RATIO,
-            _slippages[0],
+            collateralToken[0],
+            _virtualSupply,
+            _virtualBalance,
+            _reserveRatio,
+            _slippage,
             _tapRate,
             _tapFloor
-        );
-        // add secondary collateral as a protected collateral [but not as a tapped token]
-        controller.addCollateralToken(
-            collateralTokens[1],
-            _virtualSupplies[1],
-            _virtualBalances[1],
-            SECONDARY_RESERVE_RATIO,
-            _slippages[1],
-            0,
-            0
         );
         // transfer ADD_COLLATERAL_TOKEN_ROLE
         _transferPermissionFromTemplate(_acl, controller, dandelionVoting, controller.ADD_COLLATERAL_TOKEN_ROLE(), dandelionVoting);
@@ -531,14 +522,14 @@ contract GardensTemplate is BaseTemplate {
         );
     }
 
-    function _storeCollateralTokens(address[] _collateralTokens) internal {
+    function _storeCollateralToken(address[] _collateralToken) internal {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        deployedContracts.collateralTokens = _collateralTokens;
+        deployedContracts.collateralToken = _collateralToken;
     }
 
-    function _getCollateralTokens() internal returns (address[]) {
+    function _getCollateralToken() internal returns (address[]) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        return deployedContracts.collateralTokens;
+        return deployedContracts.collateralToken;
     }
 
     function _deleteStoredContracts() internal {
