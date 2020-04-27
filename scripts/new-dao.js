@@ -59,9 +59,10 @@ const MAXIMUM_TAP_RATE_INCREASE_PCT = 5 * Math.pow(10, 17)
 const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 5 * Math.pow(10, 17)
 
 // Create dao transaction four config
-const VIRTUAL_SUPPLIES = [2, 2]
-const VIRTUAL_BALANCES = [1, 1]
-const SLIPPAGES = [2 * Math.pow(10, 17), Math.pow(10, 18)]
+const VIRTUAL_SUPPLY = 2
+const VIRTUAL_BALANCE = 1
+const RESERVE_RATIO = 0.1 * PPM
+const SLIPPAGE = 2 * Math.pow(10, 17)
 const TAP_RATE =  1 * PPM
 const TAP_FLOOR = Math.pow(10, 21)
 
@@ -71,9 +72,6 @@ module.exports = async (callback) => {
 
     const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
     console.log(`Created HNY Token: ${HNY.address}`)
-
-    const ANT = await Token.new(INITIAL_SUPERVISOR, "Aragon Network", "ANT")
-    console.log(`Created ANT Token: ${ANT.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
       ORG_TOKEN_NAME,
@@ -108,15 +106,16 @@ module.exports = async (callback) => {
       SELL_FEE_PCT,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
-      [HNY.address, ANT.address]
+      [HNY.address]
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
     const createDaoTxFourReceipt = await gardensTemplate.createDaoTxFour(
       daoId(),
-      VIRTUAL_SUPPLIES,
-      VIRTUAL_BALANCES,
-      SLIPPAGES,
+      VIRTUAL_SUPPLY,
+      VIRTUAL_BALANCE,
+      RESERVE_RATIO,
+      SLIPPAGE,
       TAP_RATE,
       TAP_FLOOR
     )
