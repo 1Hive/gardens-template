@@ -30,11 +30,14 @@ const ONE_TOKEN = 1e18
 const FUNDRAISING_ONE_HUNDRED_PERCENT = 1e6
 const FUNDRAISING_ONE_TOKEN = 1e6
 
+const COLLATERAL_TOKEN_NAME = "Wasethes"
+const COLLATERAL_TOKEN_SYMBOL = "WAH"
+
 // Create dao transaction one config
 const ORG_TOKEN_NAME = "OrgToken"
 const ORG_TOKEN_SYMBOL = "OGT"
-const SUPPORT_REQUIRED = 0.5 * ONE_HUNDRED_PERCENT // 50%
-const MIN_ACCEPTANCE_QUORUM = 0.2 * ONE_HUNDRED_PERCENT // 20%
+const SUPPORT_REQUIRED = 0.5 * ONE_HUNDRED_PERCENT
+const MIN_ACCEPTANCE_QUORUM = 0.2 * ONE_HUNDRED_PERCENT
 const VOTE_DURATION_BLOCKS = 15
 const VOTE_BUFFER_BLOCKS = 10
 const VOTE_EXECUTION_DELAY_BLOCKS = 5
@@ -66,15 +69,15 @@ const VIRTUAL_SUPPLY = 2
 const VIRTUAL_BALANCE = 1
 const RESERVE_RATIO = 0.1 * FUNDRAISING_ONE_HUNDRED_PERCENT
 const SLIPPAGE = 0.2 * ONE_HUNDRED_PERCENT
-const TAP_RATE = FUNDRAISING_ONE_TOKEN // TODO Check this
-const TAP_FLOOR = 1000 * ONE_TOKEN
+const TAP_RATE_PER_BLOCK = 0
+const TAP_FLOOR = 0
 
 module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
 
-    const HNY = await Token.new(INITIAL_SUPERVISOR, "Honey", "HNY")
-    console.log(`Created HNY Token: ${HNY.address}`)
+    const collateralToken = await Token.new(INITIAL_SUPERVISOR, COLLATERAL_TOKEN_NAME, COLLATERAL_TOKEN_SYMBOL)
+    console.log(`Created ${COLLATERAL_TOKEN_SYMBOL} Token: ${collateralToken.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
       ORG_TOKEN_NAME,
@@ -86,11 +89,11 @@ module.exports = async (callback) => {
     console.log(`Tx One Complete. DAO address: ${createDaoTxOneReceipt.logs.find(x => x.event === "DeployDao").args.dao} Gas used: ${createDaoTxOneReceipt.receipt.gasUsed} `)
 
     const createDaoTxTwoReceipt = await gardensTemplate.createDaoTxTwo(
-      HNY.address,
+      collateralToken.address,
       TOLLGATE_FEE,
-      [HNY.address],
+      [collateralToken.address],
       USE_CONVICTION_AS_FINANCE,
-      HNY.address,
+      collateralToken.address,
       FINANCE_PERIOD
     )
     console.log(`Tx Two Complete. Gas used: ${createDaoTxTwoReceipt.receipt.gasUsed}`)
@@ -109,7 +112,7 @@ module.exports = async (callback) => {
       SELL_FEE_PCT,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
       MAXIMUM_TAP_FLOOR_DECREASE_PCT,
-      [HNY.address]
+      [collateralToken.address]
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
@@ -119,7 +122,7 @@ module.exports = async (callback) => {
       VIRTUAL_BALANCE,
       RESERVE_RATIO,
       SLIPPAGE,
-      TAP_RATE,
+      TAP_RATE_PER_BLOCK,
       TAP_FLOOR
     )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
