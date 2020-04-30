@@ -13,6 +13,7 @@ import {BatchedBancorMarketMaker as MarketMaker} from "@ablack/fundraising-batch
 import "@ablack/fundraising-presale/contracts/Presale.sol";
 import "@ablack/fundraising-tap/contracts/Tap.sol";
 
+
 // TODO: Add doc strings
 // TODO: Error checking for cached contracts
 contract GardensTemplate is BaseTemplate {
@@ -20,7 +21,7 @@ contract GardensTemplate is BaseTemplate {
     string constant private ERROR_MISSING_MEMBERS = "WRONG_MEMBS";
     string constant private ERROR_BAD_VOTE_SETTINGS = "BAD_SETT";
 
-    bytes32 constant internal TOKEN_MANAGER_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("token-manager")));
+    bytes32 constant internal HOOKED_TOKEN_MANAGER_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("token-manager")));
 
     /**
     * bytes32 private constant DANDELION_VOTING_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("dandelion-voting")));
@@ -63,7 +64,7 @@ contract GardensTemplate is BaseTemplate {
         ACL acl;
         DandelionVoting dandelionVoting;
         Vault fundingPoolVault;
-        HookedTokenManager tokenManager;
+        TokenManager tokenManager;
         Vault reserveVault;
         Presale presale;
         MarketMaker marketMaker;
@@ -99,7 +100,7 @@ contract GardensTemplate is BaseTemplate {
         MiniMeToken voteToken = _createToken(_voteTokenName, _voteTokenSymbol, TOKEN_DECIMALS);
         Vault fundingPoolVault = _useAgentAsVault ? _installDefaultAgentApp(dao) : _installVaultApp(dao);
         DandelionVoting dandelionVoting = _installDandelionVotingApp(dao, voteToken, _votingSettings);
-        HookedTokenManager tokenManager = _installHookedTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
+        TokenManager tokenManager = _installHookedTokenManagerApp(dao, voteToken, TOKEN_TRANSFERABLE, TOKEN_MAX_PER_ACCOUNT);
 
         if (_useAgentAsVault) {
             _createAgentPermissions(acl, Agent(fundingPoolVault), dandelionVoting, dandelionVoting);
@@ -120,27 +121,26 @@ contract GardensTemplate is BaseTemplate {
     )
         public
     {
-        (Kernel dao,
+        (,
         ACL acl,
         DandelionVoting dandelionVoting,
         Vault fundingPoolVault,) = _getDeployedContractsTxOne();
 
-        ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(fundingPoolVault));
-        _createTollgatePermissions(acl, tollgate, dandelionVoting);
+        HookedTokenManager tokenManager = HookedTokenManager(address(senderDeployedContracts[msg.sender].tokenManager));
 
-        Redemptions redemptions = _installRedemptions(dao, fundingPoolVault, senderDeployedContracts[msg.sender].tokenManager, _redeemableTokens);
+        Redemptions redemptions = _installRedemptions(senderDeployedContracts[msg.sender].dao, fundingPoolVault, senderDeployedContracts[msg.sender].tokenManager, _redeemableTokens);
         _createRedemptionsPermissions(acl, redemptions, dandelionVoting);
 
         if (_useConvictionAsFinance) {
-            IConvictionVoting convictionVoting = _installConvictionVoting(dao, senderDeployedContracts[msg.sender].tokenManager.token(), fundingPoolVault, _convictionVotingRequestToken);
-            _createPermissionForTemplate(acl, senderDeployedContracts[msg.sender].tokenManager, senderDeployedContracts[msg.sender].tokenManager.SET_HOOK_ROLE());
-            senderDeployedContracts[msg.sender].tokenManager.registerHook(address(convictionVoting));
-            // _removePermissionFromTemplate(acl, senderDeployedContracts[msg.sender].tokenManager, senderDeployedContracts[msg.sender].tokenManager.SET_HOOK_ROLE());
+            IConvictionVoting convictionVoting = _installConvictionVoting(senderDeployedContracts[msg.sender].dao, tokenManager.token(), fundingPoolVault, _convictionVotingRequestToken);
+            _createPermissionForTemplate(acl, tokenManager, tokenManager.SET_HOOK_ROLE());
+            tokenManager.registerHook(convictionVoting);
+            _removePermissionFromTemplate(acl, tokenManager, tokenManager.SET_HOOK_ROLE());
             _createVaultPermissions(acl, fundingPoolVault, convictionVoting, dandelionVoting);
             _createConvictionVotingPermissions(acl, convictionVoting, dandelionVoting);
 
         } else {
-            Finance finance = _installFinanceApp(dao, fundingPoolVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
+            Finance finance = _installFinanceApp(senderDeployedContracts[msg.sender].dao, fundingPoolVault, _financePeriod == 0 ? DEFAULT_FINANCE_PERIOD : _financePeriod);
             _createVaultPermissions(acl, fundingPoolVault, finance, dandelionVoting);
             _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
         }
@@ -210,17 +210,17 @@ contract GardensTemplate is BaseTemplate {
     // App installation/setup functions //
 
     function _installHookedTokenManagerApp(
-      Kernel _dao,
-      MiniMeToken _token,
-      bool _transferable,
-      uint256 _maxAccountTokens
+        Kernel _dao,
+        MiniMeToken _token,
+        bool _transferable,
+        uint256 _maxAccountTokens
     )
-      internal returns (HookedTokenManager)
+        internal returns (TokenManager)
     {
-        HookedTokenManager tokenManager = HookedTokenManager(_installDefaultApp(_dao, TOKEN_MANAGER_APP_ID));
+        HookedTokenManager tokenManager = HookedTokenManager(_installDefaultApp(_dao, HOOKED_TOKEN_MANAGER_APP_ID));
         _token.changeController(tokenManager);
         tokenManager.initialize(_token, _transferable, _maxAccountTokens);
-        return tokenManager;
+        return TokenManager(address(tokenManager));
     }
 
     function _installDandelionVotingApp(Kernel _dao, MiniMeToken _voteToken, uint64[5] _votingSettings)
@@ -491,7 +491,7 @@ contract GardensTemplate is BaseTemplate {
 
     // Temporary Storage functions //
 
-    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, HookedTokenManager _tokenManager)
+    function _storeDeployedContractsTxOne(Kernel _dao, ACL _acl, DandelionVoting _dandelionVoting, Vault _agentOrVault, TokenManager _tokenManager)
         internal
     {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
@@ -502,7 +502,7 @@ contract GardensTemplate is BaseTemplate {
         deployedContracts.tokenManager = _tokenManager;
     }
 
-    function _getDeployedContractsTxOne() internal returns (Kernel, ACL, DandelionVoting, Vault, HookedTokenManager) {
+    function _getDeployedContractsTxOne() internal returns (Kernel, ACL, DandelionVoting, Vault, TokenManager) {
         DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
         return (
             deployedContracts.dao,
