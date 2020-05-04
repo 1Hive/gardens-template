@@ -13,13 +13,13 @@ import {BatchedBancorMarketMaker as MarketMaker} from "@ablack/fundraising-batch
 import "@ablack/fundraising-presale/contracts/Presale.sol";
 import "@ablack/fundraising-tap/contracts/Tap.sol";
 
-
-// TODO: Add doc strings
-// TODO: Error checking for cached contracts
 contract GardensTemplate is BaseTemplate {
 
     string constant private ERROR_MISSING_MEMBERS = "WRONG_MEMBS";
     string constant private ERROR_BAD_VOTE_SETTINGS = "BAD_SETT";
+    string constant private ERROR_MISSING_CACHE = "NO_CACHE";
+    string constant private ERROR_NO_COLLATERAL = "NO_COLLATERAL";
+    string constant private ERROR_NO_TOLLGATE_TOKEN = "NO_TOLLGATE_TOKEN";
 
     bytes32 constant internal HOOKED_TOKEN_MANAGER_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("token-manager")));
 
@@ -59,12 +59,12 @@ contract GardensTemplate is BaseTemplate {
     enum Op { NONE, EQ, NEQ, GT, LT, GTE, LTE, RET, NOT, AND, OR, XOR, IF_ELSE }
 
     struct DeployedContracts {
-        address collateralToken;
         Kernel dao;
         ACL acl;
         DandelionVoting dandelionVoting;
         Vault fundingPoolVault;
         TokenManager tokenManager;
+        address collateralToken;
         Vault reserveVault;
         Presale presale;
         MarketMaker marketMaker;
@@ -84,16 +84,21 @@ contract GardensTemplate is BaseTemplate {
 
     // New DAO functions //
 
+    /**
+    * @dev Create the DAO and initialise the basic apps necessary for gardens
+    * @param _voteTokenName The name for the token used by share holders in the organization
+    * @param _voteTokenSymbol The symbol for the token used by share holders in the organization
+    * @param _votingSettings Array of [supportRequired, minAcceptanceQuorum, voteDuration, voteBufferBlocks, voteExecutionDelayBlocks] to set up the voting app of the organization
+    * @param _useAgentAsVault Whether to use an Agent app or Vault app
+    */
     function createDaoTxOne(
         string _voteTokenName,
         string _voteTokenSymbol,
-        address[] _members,
         uint64[5] _votingSettings,
         bool _useAgentAsVault
     )
         public
     {
-        require(_members.length > 0, ERROR_MISSING_MEMBERS);
         require(_votingSettings.length == 5, ERROR_BAD_VOTE_SETTINGS);
 
         (Kernel dao, ACL acl) = _createDAO();
@@ -111,28 +116,43 @@ contract GardensTemplate is BaseTemplate {
         _storeDeployedContractsTxOne(dao, acl, dandelionVoting, fundingPoolVault, tokenManager);
     }
 
+    /**
+    * @dev Add and initialise tollgate, redemptions and conviction voting or finance apps
+    * @param _tollgateFeeToken The token used to pay the tollgate fee
+    * @param _tollgateFeeAmount The tollgate fee amount
+    * @param _redeemableTokens Array of initially redeemable tokens
+    * @param _useConvictionAsFinance Whether to use conviction voting or finance
+    * @param _financePeriod Finance period
+    * @param _collateralToken Token distributed by conviction voting and used as collateral in fundraising
+    */
     function createDaoTxTwo(
         ERC20 _tollgateFeeToken,
         uint256 _tollgateFeeAmount,
         address[] _redeemableTokens,
         bool _useConvictionAsFinance,
-        ERC20 _convictionVotingRequestToken,
-        uint64 _financePeriod
+        uint64 _financePeriod,
+        address _collateralToken
     )
         public
     {
-        (,
+        require(_tollgateFeeToken != address(0), ERROR_NO_TOLLGATE_TOKEN);
+        require(_collateralToken != address(0), ERROR_NO_COLLATERAL);
+        require(senderDeployedContracts[msg.sender].dao != address(0), ERROR_MISSING_CACHE);
+
+        (Kernel dao,
         ACL acl,
         DandelionVoting dandelionVoting,
-        Vault fundingPoolVault,) = _getDeployedContractsTxOne();
+        Vault fundingPoolVault,
+        TokenManager tokenManager) = _getDeployedContractsTxOne();
 
-        HookedTokenManager tokenManager = HookedTokenManager(address(senderDeployedContracts[msg.sender].tokenManager));
+        ITollgate tollgate = _installTollgate(dao, _tollgateFeeToken, _tollgateFeeAmount, address(fundingPoolVault));
+        _createTollgatePermissions(acl, tollgate, dandelionVoting);
 
         Redemptions redemptions = _installRedemptions(senderDeployedContracts[msg.sender].dao, fundingPoolVault, senderDeployedContracts[msg.sender].tokenManager, _redeemableTokens);
         _createRedemptionsPermissions(acl, redemptions, dandelionVoting);
 
         if (_useConvictionAsFinance) {
-            IConvictionVoting convictionVoting = _installConvictionVoting(senderDeployedContracts[msg.sender].dao, tokenManager.token(), fundingPoolVault, _convictionVotingRequestToken);
+            IConvictionVoting convictionVoting = _installConvictionVoting(dao, tokenManager.token(), fundingPoolVault, _collateralToken);
             _createPermissionForTemplate(acl, tokenManager, tokenManager.SET_HOOK_ROLE());
             tokenManager.registerHook(convictionVoting);
             _removePermissionFromTemplate(acl, tokenManager, tokenManager.SET_HOOK_ROLE());
@@ -144,26 +164,45 @@ contract GardensTemplate is BaseTemplate {
             _createVaultPermissions(acl, fundingPoolVault, finance, dandelionVoting);
             _createFinancePermissions(acl, finance, dandelionVoting, dandelionVoting);
         }
+
+        _storeDeployedContractsTxTwo(_collateralToken);
     }
 
+    /**
+    * @dev Add and initialise fundraising apps
+    * @param _goal Presale goal in wei
+    * @param _period Presale length in seconds
+    * @param _exchangeRate Presale exchange rate in PPM
+    * @param _vestingCliffPeriod Vesting cliff length for presale bought tokens in seconds
+    * @param _vestingCompletePeriod Vesting complete length for presale bought tokens in seconds
+    * @param _supplyOfferedPct Percent of total supply offered in presale in PPM
+    * @param _fundingForBeneficiaryPct Percent of raised presale funds sent to the organization in PPM
+    * @param _openDate The time the presale starts, requires manual opening if set to 0
+    * @param _batchBlocks The number of blocks for each buy/sell batch on the market, used to prevent front-running
+    * @param _buyFeePct The Percent of a purchase contribution that is sent to the organization in PCT_BASE
+    * @param _sellFeePct The percent of a sale return that is sent to the organization in PCT_BASE
+    * @param _maxTapRateIncreasePct The maximum tap rate increase percentage allowed in PCT_BASE
+    * @param _maxTapFloorDecreasePct The maximum tap floor decrease percentage allowed in PCT_BASE
+    */
     function createDaoTxThree(
         uint256 _goal,
-        uint64  _period,
+        uint64 _period,
         uint256 _exchangeRate,
-        uint64  _vestingCliffPeriod,
-        uint64  _vestingCompletePeriod,
+        uint64 _vestingCliffPeriod,
+        uint64 _vestingCompletePeriod,
         uint256 _supplyOfferedPct,
         uint256 _fundingForBeneficiaryPct,
-        uint64  _openDate,
+        uint64 _openDate,
         uint256 _batchBlocks,
         uint256 _buyFeePct,
         uint256 _sellFeePct,
         uint256 _maxTapRateIncreasePct,
-        uint256 _maxTapFloorDecreasePct,
-        address _collateralToken
+        uint256 _maxTapFloorDecreasePct
     )
         public
     {
+        require(senderDeployedContracts[msg.sender].collateralToken != address(0), ERROR_MISSING_CACHE);
+
         _installFundraisingApps(
             _goal,
             _period,
@@ -177,15 +216,23 @@ contract GardensTemplate is BaseTemplate {
             _buyFeePct,
             _sellFeePct,
             _maxTapRateIncreasePct,
-            _maxTapFloorDecreasePct,
-            _collateralToken
+            _maxTapFloorDecreasePct
         );
 
         _createCustomTokenManagerPermissions();
         _createFundraisingPermissions();
-        _storeCollateralToken(_collateralToken);
     }
 
+    /**
+    * @dev Configure the fundraising collateral and finalise permissions
+    * @param _id Unique Aragon DAO ID
+    * @param _virtualSupply Collateral token virtual supply in wei
+    * @param _virtualBalance Collateral token virtual balance in wei
+    * @param _reserveRatio The reserve ratio to be used for the collateral token in PPM
+    * @param _slippage The price slippage below which each market making batch is to be kept for the collateral token in PCT_BASE
+    * @param _tapRate The rate at which that token is to be tapped in wei / block
+    * @param _tapFloor The floor above which the reserve pool balance for the token is to be kept in wei
+    */
     function createDaoTxFour(
         string _id,
         uint256 _virtualSupply,
@@ -197,6 +244,8 @@ contract GardensTemplate is BaseTemplate {
     )
         public
     {
+        require(senderDeployedContracts[msg.sender].reserveVault != address(0), ERROR_MISSING_CACHE);
+
         _validateId(_id);
         (Kernel dao, ACL acl, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
 
@@ -269,12 +318,12 @@ contract GardensTemplate is BaseTemplate {
         uint256 _buyFeePct,
         uint256 _sellFeePct,
         uint256 _maxTapRateIncreasePct,
-        uint256 _maxTapFloorDecreasePct,
-        address _collateralToken
+        uint256 _maxTapFloorDecreasePct
     )
         internal
     {
         _proxifyFundraisingApps();
+        address collateralToken = _getDeployedContractsTxTwo();
 
         _initializePresale(
             _goal,
@@ -285,11 +334,11 @@ contract GardensTemplate is BaseTemplate {
             _supplyOfferedPct,
             _fundingForBeneficiaryPct,
             _openDate,
-            _collateralToken
+            collateralToken
         );
         _initializeMarketMaker(_batchBlocks, _buyFeePct, _sellFeePct);
         _initializeTap(_batchBlocks, _maxTapRateIncreasePct, _maxTapFloorDecreasePct);
-        _initializeController(_collateralToken);
+        _initializeController(collateralToken);
     }
 
     function _proxifyFundraisingApps() internal {
@@ -372,7 +421,7 @@ contract GardensTemplate is BaseTemplate {
     {
         (,, DandelionVoting dandelionVoting,,) = _getDeployedContractsTxOne();
         (,,,, Controller controller) = _getDeployedContractsTxThree();
-        address collateralToken = _getCollateralToken();
+        address collateralToken = _getDeployedContractsTxTwo();
 
         // create and grant ADD_COLLATERAL_TOKEN_ROLE to this template
         _createPermissionForTemplate(_acl, address(controller), controller.ADD_COLLATERAL_TOKEN_ROLE());
@@ -513,6 +562,16 @@ contract GardensTemplate is BaseTemplate {
         );
     }
 
+    function _storeDeployedContractsTxTwo(address _collateralToken) internal {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        deployedContracts.collateralToken = _collateralToken;
+    }
+
+    function _getDeployedContractsTxTwo() internal returns (address) {
+        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
+        return deployedContracts.collateralToken;
+    }
+
     function _storeDeployedContractsTxThree(Vault _reserve, Presale _presale, MarketMaker _marketMaker, Tap _tap, Controller _controller)
         internal
     {
@@ -533,16 +592,6 @@ contract GardensTemplate is BaseTemplate {
             deployedContracts.tap,
             deployedContracts.controller
         );
-    }
-
-    function _storeCollateralToken(address _collateralToken) internal {
-        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        deployedContracts.collateralToken = _collateralToken;
-    }
-
-    function _getCollateralToken() internal returns (address) {
-        DeployedContracts storage deployedContracts = senderDeployedContracts[msg.sender];
-        return deployedContracts.collateralToken;
     }
 
     function _deleteStoredContracts() internal {
