@@ -2,7 +2,7 @@ const GardensTemplate = artifacts.require("GardensTemplate")
 const Token = artifacts.require("Token")
 
 const DAO_ID = "gardens" + Math.random() // Note this must be unique for each deployment, change it for subsequent deployments
-const INITIAL_SUPERVISOR = "0xb4124cEB3451635DAcedd11767f004d8a28c6eE7"
+const TOKEN_OWNER = "0xb4124cEB3451635DAcedd11767f004d8a28c6eE7"
 const NETWORK_ARG = "--network"
 const DAO_ID_ARG = "--daoid"
 
@@ -59,8 +59,8 @@ const PRESALE_PERCENT_SUPPLY_OFFERED = FUNDRAISING_ONE_HUNDRED_PERCENT
 const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.5 * FUNDRAISING_ONE_HUNDRED_PERCENT
 const OPEN_DATE = 0
 const BATCH_BLOCKS = 1
-const BUY_FEE_PCT = 0.25 * ONE_HUNDRED_PERCENT
-const SELL_FEE_PCT = 0.25 * ONE_HUNDRED_PERCENT
+const BUY_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
+const SELL_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
 const MAXIMUM_TAP_RATE_INCREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
 const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
 
@@ -76,13 +76,12 @@ module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
 
-    const collateralToken = await Token.new(INITIAL_SUPERVISOR, COLLATERAL_TOKEN_NAME, COLLATERAL_TOKEN_SYMBOL)
+    const collateralToken = await Token.new(TOKEN_OWNER, COLLATERAL_TOKEN_NAME, COLLATERAL_TOKEN_SYMBOL)
     console.log(`Created ${COLLATERAL_TOKEN_SYMBOL} Token: ${collateralToken.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
       ORG_TOKEN_NAME,
       ORG_TOKEN_SYMBOL,
-      [INITIAL_SUPERVISOR],
       VOTING_SETTINGS,
       USE_AGENT_AS_VAULT
     );
@@ -93,8 +92,8 @@ module.exports = async (callback) => {
       TOLLGATE_FEE,
       [collateralToken.address],
       USE_CONVICTION_AS_FINANCE,
-      collateralToken.address,
-      FINANCE_PERIOD
+      FINANCE_PERIOD,
+      collateralToken.address
     )
     console.log(`Tx Two Complete. Gas used: ${createDaoTxTwoReceipt.receipt.gasUsed}`)
 
@@ -111,8 +110,7 @@ module.exports = async (callback) => {
       BUY_FEE_PCT,
       SELL_FEE_PCT,
       MAXIMUM_TAP_RATE_INCREASE_PCT,
-      MAXIMUM_TAP_FLOOR_DECREASE_PCT,
-      [collateralToken.address]
+      MAXIMUM_TAP_FLOOR_DECREASE_PCT
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
