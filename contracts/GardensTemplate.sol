@@ -3,6 +3,7 @@ pragma solidity 0.4.24;
 import "@aragon/templates-shared/contracts/BaseTemplate.sol";
 import "@1hive/apps-dandelion-voting/contracts/DandelionVoting.sol";
 import "@1hive/apps-redemptions/contracts/Redemptions.sol";
+import "@1hive/token-manager/contracts/HookedTokenManager.sol";
 import "@ablack/fundraising-bancor-formula/contracts/BancorFormula.sol";
 import "@ablack/fundraising-aragon-fundraising/contracts/AragonFundraisingController.sol";
 import "@ablack/fundraising-presale/contracts/Presale.sol";
@@ -10,7 +11,6 @@ import "@ablack/fundraising-tap/contracts/Tap.sol";
 import {BatchedBancorMarketMaker as MarketMaker} from "@ablack/fundraising-batched-bancor-market-maker/contracts/BatchedBancorMarketMaker.sol";
 import {ITollgate as Tollgate} from "./external/ITollgate.sol";
 import {IConvictionVoting as ConvictionVoting} from "./external/IConvictionVoting.sol";
-import {IHookedTokenManager as HookedTokenManager} from "./external/IHookedTokenManager.sol";
 import {IAragonFundraisingController as Controller} from "./external/IAragonFundraisingController.sol";
 
 contract GardensTemplate is BaseTemplate {

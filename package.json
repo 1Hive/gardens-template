@@ -49,6 +49,7 @@
     "@aragon/templates-shared": "1.0.0",
     "@1hive/apps-dandelion-voting": "2.0.0",
     "@1hive/apps-redemptions": "2.0.1",
+    "@1hive/token-manager": "2.1.0",
     "@ablack/fundraising-aragon-fundraising": "^1.0.0",
     "@ablack/fundraising-bancor-formula": "^1.0.0",
     "@ablack/fundraising-batched-bancor-market-maker": "^1.0.0",
