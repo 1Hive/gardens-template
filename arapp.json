@@ -1,0 +1,19 @@
+{
+  "environments": {
+    "default": {
+      "appName": "gardens-template.aragonpm.eth",
+      "network": "rpc"
+    },
+    "devnet": {
+      "appName": "gardens-template.aragonpm.eth",
+      "network": "devnet"
+    },
+    "rinkeby": {
+      "appName": "gardens-template.aragonpm.eth",
+      "address": "0x36bf6805a6a1a9e4bdc7f84c7a79f2f967b11c11",
+      "network": "rinkeby",
+      "registry": "0x98Df287B6C145399Aaa709692c8D308357bC085D"
+    }
+  },
+  "path": "contracts/GardensTemplate.sol"
+}
