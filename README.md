@@ -4,7 +4,7 @@ Aragon DAO Template to experiment with public community coordination.
 
 ## Local deployment
 
-To deploy the DAO to a local `aragon devchain`:
+To deploy a Gardens DAO to a local `aragon devchain`:
 
 1) Install dependencies:
 ```
@@ -67,7 +67,8 @@ $ npm run deploy:rpc
 - Run `npm run build`
 - Run `npx aragon apm publish major --files app/build --skip-confirmation` in the `apps/aragon-fundraising` folder
 
-13) Deploy the Hooked Token Manager app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
+13) Deploy the Hooked Token Manager app to the devchain as it's not installed by default like the other main apps 
+(Voting, Token Manager, Agent etc):
 - Download https://github.com/1hive/token-manager-app/
 - Run `npm install` in the root folder
 - Run `npm run build` in the root folder
@@ -81,4 +82,27 @@ $ npx truffle exec scripts/new-dao.js --network rpc
 15) Copy the output DAO address into this URL and open it in a web browser:
 ```
 http://localhost:3000/#/<DAO address>
+```
+
+
+## Rinkeby deployment using previously deployed template
+
+To deploy a Gardens DAO to Rinkeby:
+
+1) Install dependencies:
+```
+$ npm install
+```
+
+2) Compile contracts:
+```
+$ npx truffle compile
+```
+
+3) Configure your DAO in: `scripts/new-dao.js` 
+
+4) Deploy a DAO to Rinkeby (requires a Rinkeby account accessible by the truffle script as documented here: 
+https://hack.aragon.org/docs/cli-intro#set-a-private-key):
+```
+$ npx truffle exec scripts/new-dao.js --network rinkeby
 ```
