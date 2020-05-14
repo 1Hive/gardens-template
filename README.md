@@ -40,7 +40,7 @@ $ npm run deploy:rpc
 - Run `npx aragon apm publish major --files dist --skip-confirmation` in the root folder
 
 8) Deploy the Dandelion Voting app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
-- Download https://github.com/1Hive/dandelion-voting-app
+- Download https://github.com/1Hive/dandelion-voting-app/tree/use-hooked-token-manager
 - Run `npm install` in the root folder
 - Run `npm run build` in the root folder
 - Run `npx aragon apm publish major --files dist --skip-confirmation` in the root folder
@@ -105,4 +105,9 @@ $ npx truffle compile
 https://hack.aragon.org/docs/cli-intro#set-a-private-key):
 ```
 $ npx truffle exec scripts/new-dao.js --network rinkeby
+```
+
+5) Copy the output DAO address into this URL and open it in a web browser:
+```
+https://rinkeby.aragon.org/#/<DAO address>
 ```
