@@ -58,19 +58,13 @@ const VESTING_COMPLETE_PERIOD = 360 * DAYS
 const PRESALE_PERCENT_SUPPLY_OFFERED = FUNDRAISING_ONE_HUNDRED_PERCENT
 const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.5 * FUNDRAISING_ONE_HUNDRED_PERCENT
 const OPEN_DATE = 0
-const BATCH_BLOCKS = 1
 const BUY_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
 const SELL_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
-const MAXIMUM_TAP_RATE_INCREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
-const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
 
 // Create dao transaction four config
 const VIRTUAL_SUPPLY = 2
 const VIRTUAL_BALANCE = 1
 const RESERVE_RATIO = 0.1 * FUNDRAISING_ONE_HUNDRED_PERCENT
-const SLIPPAGE = 0.2 * ONE_HUNDRED_PERCENT
-const TAP_RATE_PER_BLOCK = 0
-const TAP_FLOOR = 0
 
 module.exports = async (callback) => {
   try {
@@ -106,11 +100,8 @@ module.exports = async (callback) => {
       PRESALE_PERCENT_SUPPLY_OFFERED,
       PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY,
       OPEN_DATE,
-      BATCH_BLOCKS,
       BUY_FEE_PCT,
-      SELL_FEE_PCT,
-      MAXIMUM_TAP_RATE_INCREASE_PCT,
-      MAXIMUM_TAP_FLOOR_DECREASE_PCT
+      SELL_FEE_PCT
     )
     console.log(`Tx Three Complete. Gas used: ${createDaoTxThreeReceipt.receipt.gasUsed}`)
 
@@ -118,10 +109,7 @@ module.exports = async (callback) => {
       daoId(),
       VIRTUAL_SUPPLY,
       VIRTUAL_BALANCE,
-      RESERVE_RATIO,
-      SLIPPAGE,
-      TAP_RATE_PER_BLOCK,
-      TAP_FLOOR
+      RESERVE_RATIO
     )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 
