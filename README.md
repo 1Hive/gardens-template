@@ -67,19 +67,23 @@ $ npm run deploy:rpc
 - Run `npm run build`
 - Run `npx aragon apm publish major --files app/build --skip-confirmation` in the `apps/aragon-fundraising` folder
 
-13) Deploy the Hooked Token Manager app to the devchain as it's not installed by default like the other main apps 
+13) Deploy the Fundraising suite Bancor Marker Maker app (using the repo downloaded in step 11):
+- Run `npm install` in the `apps/bancor-market-maker` folder
+- Run `npx aragon apm publish major --skip-confirmation` in the `apps/bancor-market-maker` folder
+
+14) Deploy the Hooked Token Manager app to the devchain as it's not installed by default like the other main apps 
 (Voting, Token Manager, Agent etc):
 - Download https://github.com/1hive/token-manager-app/
 - Run `npm install` in the root folder
 - Run `npm run build` in the root folder
 - Run `npx aragon apm publish major --files dist --skip-confirmation` in the root folder
 
-14) Create a new Gardens Dao on the devchain:
+15) Create a new Gardens Dao on the devchain:
 ```
 $ npx truffle exec scripts/new-dao.js --network rpc
 ```
 
-15) Copy the output DAO address into this URL and open it in a web browser:
+16) Copy the output DAO address into this URL and open it in a web browser:
 ```
 http://localhost:3000/#/<DAO address>
 ```
