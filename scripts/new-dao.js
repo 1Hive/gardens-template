@@ -113,7 +113,6 @@ module.exports = async (callback) => {
     )
     console.log(`Tx Four Complete. Gas used: ${createDaoTxFourReceipt.receipt.gasUsed}`)
 
-
   } catch (error) {
     console.log(error)
   }

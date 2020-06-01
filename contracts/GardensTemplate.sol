@@ -28,8 +28,8 @@ contract GardensTemplate is BaseTemplate {
     * bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("hooked-token-manager")));
     * bytes32 private constant BANCOR_FORMULA_ID = apmNamehash("bancor-formula");
     * bytes32 private constant PRESALE_ID = apmNamehash("presale");
-    * bytes32 private constant MARKET_MAKER_ID = apmNamehash("batched-bancor-market-maker");
-    * bytes32 private constant ARAGON_FUNDRAISING_ID = apmNamehash("aragon-fundraising");
+    * bytes32 private constant MARKET_MAKER_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("bancor-market-maker")));
+    * bytes32 private constant MARKETPLACE_CONTROLLER_ID = keccak256(abi.encodePacked(apmNamehash("open"), keccak256("marketplace-controller")));
     */
     // Local app ID's
     bytes32 private constant DANDELION_VOTING_APP_ID = 0xf1a28fda6bef4895d111ff59fd86be63fa1a9d61868303e3ff6368363b4c687f;
@@ -37,21 +37,19 @@ contract GardensTemplate is BaseTemplate {
     bytes32 private constant CONVICTION_VOTING_APP_ID = 0x589851b3734f6578a92f33bfc26877a1166b95238be1f484deeaac6383d14c38;
     bytes32 private constant TOLLGATE_APP_ID = 0x7075e547e73484f0736b2160fcfb010b4f32b751fc729c25b677a0347d9b4246;
     bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0xb2d2065b829a91588c8b9a15d99acd026f6673733603c6c60e505654eb2b472d;
-    bytes32 private constant MARKET_MAKER_ID= 0xc2bb88ab974c474221f15f691ed9da38be2f5d37364180cec05403c656981bf0;
-    bytes32 private constant ARAGON_FUNDRAISING_ID = 0x668ac370eed7e5861234d1c0a1e512686f53594fcb887e5bcecc35675a4becac;
 
     // Rinkeby app ID's
 //    bytes32 private constant DANDELION_VOTING_APP_ID = 0x40a80c4b4050993512df39c802adec62dafeb1f0586cc15f4d34bda9c47ba468; // gardens-dandelion-voting.open.aragonpm.eth
 //    bytes32 private constant REDEMPTIONS_APP_ID = 0x743bd419d5c9061290b181b19e114f36e9cc9ddb42b4e54fc811edb22eb85e9d;
 //    bytes32 private constant CONVICTION_VOTING_APP_ID = 0x16c0b0af27b5e169e5f678055840d7ab2b312519d7700a06554c287619f4b9f9; // gardens-dependency.open.aragonpm.eth
-//    bytes32 private constant TOLLGATE_APP_ID = 0x0d321283289e70165ef6db7f11fc62c74a7d39dac3ee148428c4f9e3d74c6d61;
+//    bytes32 private constant TOLLGATE_APP_ID = 0x0d321283289e70165ef6db7f11fc62c74a7d39dac3ee148428c4f9e3d74c6d61; // tollgate.open.aragonpm.eth
 //    bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0x26bb91b115bf14acbdc18d75042e165321eceeb3d10d852386576bbd0ec11519; // gardens-token-manager.open.aragonpm.eth
-//    bytes32 private constant MARKET_MAKER_ID = 0x8333248ea843815de5021c9547222a82c96ab77c2171f658c0819b6c3623b829; // gardens-market-maker.open.aragonpm.eth
-//    bytes32 private constant ARAGON_FUNDRAISING_ID = 0x2e7868bd85fc61cf3dda63aff7d1207ea0793ef217fef1c2c7f74e95967439fc; // gardens-fundraising.open.aragonpm.eth
 
     // Local and Rinkeby app ID's (no need to change between environments)
     bytes32 private constant BANCOR_FORMULA_ID = 0xd71dde5e4bea1928026c1779bde7ed27bd7ef3d0ce9802e4117631eb6fa4ed7d;
     bytes32 private constant PRESALE_ID = 0x5de9bbdeaf6584c220c7b7f1922383bcd8bbcd4b48832080afd9d5ebf9a04df5;
+    bytes32 private constant MARKET_MAKER_ID = 0x082190c7d2371cc21a38fcd9c3cd724dd686e838e1f7a435f9f5fbc0cb562f0f; // bancor-market-maker.open.aragonpm.eth
+    bytes32 private constant MARKETPLACE_CONTROLLER_ID = 0x11a4d82f2764c41dac72ca406a52a7392a0800047a040944b29dccd669bad8e9; // marketplace-controller.open.aragonpm.eth
 
     bool private constant TOKEN_TRANSFERABLE = true;
     uint8 private constant TOKEN_DECIMALS = uint8(18);
@@ -331,7 +329,7 @@ contract GardensTemplate is BaseTemplate {
         Vault reserveVault = _installVaultApp(dao);
         Presale presale = Presale(_installNonDefaultApp(dao, PRESALE_ID));
         MarketMaker marketMaker = MarketMaker(_installNonDefaultApp(dao, MARKET_MAKER_ID));
-        Controller controller = Controller(_installNonDefaultApp(dao, ARAGON_FUNDRAISING_ID));
+        Controller controller = Controller(_installNonDefaultApp(dao, MARKETPLACE_CONTROLLER_ID));
 
         _storeDeployedContractsTxThree(reserveVault, presale, marketMaker, controller);
     }
