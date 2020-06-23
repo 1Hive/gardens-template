@@ -1,15 +1,19 @@
 const GardensTemplate = artifacts.require("GardensTemplate")
+const MiniMeToken = artifacts.require("MiniMeToken")
 const Token = artifacts.require("Token")
 
 const DAO_ID = "gardens" + Math.random() // Note this must be unique for each deployment, change it for subsequent deployments
 const TOKEN_OWNER = "0xb4124cEB3451635DAcedd11767f004d8a28c6eE7"
 const NETWORK_ARG = "--network"
 const DAO_ID_ARG = "--daoid"
+const NON_MINIME_COLLATERAL = "--nonminime"
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const argValue = (arg, defaultValue) => process.argv.includes(arg) ? process.argv[process.argv.indexOf(arg) + 1] : defaultValue
 
 const network = () => argValue(NETWORK_ARG, "local")
 const daoId = () => argValue(DAO_ID_ARG, DAO_ID)
+const nonMiniMeCollateral = () => argValue(NON_MINIME_COLLATERAL, false)
 
 const gardensTemplateAddress = () => {
   if (network() === "rinkeby") {
@@ -30,8 +34,11 @@ const ONE_TOKEN = 1e18
 const FUNDRAISING_ONE_HUNDRED_PERCENT = 1e6
 const FUNDRAISING_ONE_TOKEN = 1e6
 
-const COLLATERAL_TOKEN_NAME = "Wasethes"
-const COLLATERAL_TOKEN_SYMBOL = "WAH"
+const COLLATERAL_TOKEN_NAME = "Honey"
+const COLLATERAL_TOKEN_SYMBOL = "HNY"
+const COLLATERAL_TOKEN_DECIMALS = 18
+const COLLATERAL_TOKEN_TRANSFERS_ENABLED = true
+const COLLATERAL_BALANCE = 10e23
 
 // Create dao transaction one config
 const ORG_TOKEN_NAME = "OrgToken"
@@ -69,8 +76,22 @@ const RESERVE_RATIO = 0.1 * FUNDRAISING_ONE_HUNDRED_PERCENT
 module.exports = async (callback) => {
   try {
     const gardensTemplate = await GardensTemplate.at(gardensTemplateAddress())
+    let collateralToken
 
-    const collateralToken = await Token.new(TOKEN_OWNER, COLLATERAL_TOKEN_NAME, COLLATERAL_TOKEN_SYMBOL)
+    if (nonMiniMeCollateral()) {
+      collateralToken = await Token.new(TOKEN_OWNER, COLLATERAL_TOKEN_NAME, COLLATERAL_TOKEN_SYMBOL)
+    } else {
+      collateralToken = await MiniMeToken.new(
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        0,
+        COLLATERAL_TOKEN_NAME,
+        COLLATERAL_TOKEN_DECIMALS,
+        COLLATERAL_TOKEN_SYMBOL,
+        COLLATERAL_TOKEN_TRANSFERS_ENABLED
+      )
+      collateralToken.generateTokens(TOKEN_OWNER, COLLATERAL_BALANCE)
+    }
     console.log(`Created ${COLLATERAL_TOKEN_SYMBOL} Token: ${collateralToken.address}`)
 
     const createDaoTxOneReceipt = await gardensTemplate.createDaoTxOne(
