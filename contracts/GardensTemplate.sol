@@ -41,7 +41,7 @@ contract GardensTemplate is BaseTemplate {
     // Rinkeby app ID's
 //    bytes32 private constant DANDELION_VOTING_APP_ID = 0x40a80c4b4050993512df39c802adec62dafeb1f0586cc15f4d34bda9c47ba468; // gardens-dandelion-voting.open.aragonpm.eth
 //    bytes32 private constant REDEMPTIONS_APP_ID = 0x743bd419d5c9061290b181b19e114f36e9cc9ddb42b4e54fc811edb22eb85e9d;
-//    bytes32 private constant CONVICTION_VOTING_APP_ID = 0x16c0b0af27b5e169e5f678055840d7ab2b312519d7700a06554c287619f4b9f9; // gardens-dependency.open.aragonpm.eth
+//    bytes32 private constant CONVICTION_VOTING_APP_ID = 0xc5e2e4d7422daecfc2dc08a9932e5b9f84cf5b2f61a81ef13e257b4803b93b2f; // gardens-conviction-voting.open.aragonpm.eth
 //    bytes32 private constant TOLLGATE_APP_ID = 0x0d321283289e70165ef6db7f11fc62c74a7d39dac3ee148428c4f9e3d74c6d61; // tollgate.open.aragonpm.eth
 //    bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0x26bb91b115bf14acbdc18d75042e165321eceeb3d10d852386576bbd0ec11519; // gardens-token-manager.open.aragonpm.eth
 
