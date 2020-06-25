@@ -39,11 +39,13 @@ contract GardensTemplate is BaseTemplate {
     bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0xb2d2065b829a91588c8b9a15d99acd026f6673733603c6c60e505654eb2b472d;
 
     // Rinkeby app ID's
-//    bytes32 private constant DANDELION_VOTING_APP_ID = 0x40a80c4b4050993512df39c802adec62dafeb1f0586cc15f4d34bda9c47ba468; // gardens-dandelion-voting.open.aragonpm.eth
-//    bytes32 private constant REDEMPTIONS_APP_ID = 0x743bd419d5c9061290b181b19e114f36e9cc9ddb42b4e54fc811edb22eb85e9d;
-//    bytes32 private constant CONVICTION_VOTING_APP_ID = 0xc5e2e4d7422daecfc2dc08a9932e5b9f84cf5b2f61a81ef13e257b4803b93b2f; // gardens-conviction-voting.open.aragonpm.eth
-//    bytes32 private constant TOLLGATE_APP_ID = 0x0d321283289e70165ef6db7f11fc62c74a7d39dac3ee148428c4f9e3d74c6d61; // tollgate.open.aragonpm.eth
-//    bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0x26bb91b115bf14acbdc18d75042e165321eceeb3d10d852386576bbd0ec11519; // gardens-token-manager.open.aragonpm.eth
+//        bytes32 private constant DANDELION_VOTING_APP_ID = 0x40a80c4b4050993512df39c802adec62dafeb1f0586cc15f4d34bda9c47ba468; // gardens-dandelion-voting.open.aragonpm.eth
+//        bytes32 private constant REDEMPTIONS_APP_ID = 0x743bd419d5c9061290b181b19e114f36e9cc9ddb42b4e54fc811edb22eb85e9d;
+//        bytes32 private constant TOLLGATE_APP_ID = 0x0d321283289e70165ef6db7f11fc62c74a7d39dac3ee148428c4f9e3d74c6d61; // tollgate.open.aragonpm.eth
+//        bytes32 private constant HOOKED_TOKEN_MANAGER_APP_ID = 0x26bb91b115bf14acbdc18d75042e165321eceeb3d10d852386576bbd0ec11519; // gardens-token-manager.open.aragonpm.eth
+
+    //    bytes32 private constant CONVICTION_VOTING_APP_ID = 0xc5e2e4d7422daecfc2dc08a9932e5b9f84cf5b2f61a81ef13e257b4803b93b2f; // gardens-conviction-voting.open.aragonpm.eth
+//        bytes32 private constant CONVICTION_VOTING_APP_ID = 0x2e20d4e6af7ec3f285a8c7358e357d14483ccf38e79779c3037bc70c24141038; // conviction-voting-gardens.open.aragonpm.eth
 
     // Local and Rinkeby app ID's (no need to change between environments)
     bytes32 private constant BANCOR_FORMULA_ID = 0xd71dde5e4bea1928026c1779bde7ed27bd7ef3d0ce9802e4117631eb6fa4ed7d;
