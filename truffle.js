@@ -60,7 +60,7 @@ module.exports = {
       host: 'localhost',
       port: 8545,
       gas: 8.9e6,
-      gasPrice: 15000000001
+      gasPrice: 20000000001
     },
     devnet: {
       network_id: 16,
