@@ -8,6 +8,12 @@
       "appName": "gardens-template.aragonpm.eth",
       "network": "devnet"
     },
+    "xdai": {
+      "registry": "0xaafca6b0c89521752e559650206d7c925fd0e530",
+      "appName": "gardens-template.1hive.aragonpm.eth",
+      "address": "0xa21b6c0ac58e2d21114ed3e88cec769234e41ece",
+      "network": "xdai"
+    },
     "rinkeby": {
       "appName": "gardens-template.aragonpm.eth",
       "address": "0x0432d80820cc0bc9209bdb52911703d6dd1114fd",

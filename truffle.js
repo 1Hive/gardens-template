@@ -43,15 +43,7 @@ const providerForNetwork = (network) => (
   }
 )
 
-const mochaGasSettings = {
-  reporter: 'eth-gas-reporter',
-  reporterOptions : {
-    currency: 'USD',
-    gasPrice: 3
-  }
-}
-
-const mocha = process.env.GAS_REPORTER ? mochaGasSettings : {}
+// const mocha = process.env.GAS_REPORTER ? mochaGasSettings : {}
 
 module.exports = {
   networks: {
@@ -80,6 +72,12 @@ module.exports = {
       provider: providerForNetwork('ropsten'),
       gas: 4.712e6
     },
+    xdai: {
+      network_id: 100,
+      provider: providerForNetwork('xdai'),
+      gas: 95e5,
+      gasPrice: 1000000000
+    },
     rinkeby: {
       network_id: 4,
       provider: providerForNetwork('rinkeby'),
@@ -100,11 +98,15 @@ module.exports = {
     },
   },
   build: {},
-  mocha,
-  solc: {
-    optimizer: {
-      enabled: true,
-      runs: 1
+  compilers: {
+    solc: {
+      version: "0.4.24",
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 1
+        }
+      }
     }
-  },
+  }
 }
