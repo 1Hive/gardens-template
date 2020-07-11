@@ -82,7 +82,7 @@ module.exports = {
       network_id: 4,
       provider: providerForNetwork('rinkeby'),
       gas: 7.9e6,
-      gasPrice: 15000000001
+      gasPrice: 16000000001
     },
     kovan: {
       network_id: 42,

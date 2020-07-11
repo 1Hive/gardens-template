@@ -39,7 +39,7 @@ const FUNDRAISING_ONE_TOKEN = 1e6
 // CONFIGURATION
 
 // Collateral Token is used to pay contributors and held in the bonding curve reserve
-const COLLATERAL_TOKEN_ADDRESS = "0x71850b7E9Ee3f13Ab46d67167341E4bDc905Eef9" // Rinkeby Test Honey
+const COLLATERAL_TOKEN_ADDRESS = "0x1ea885084dd4747be71da907bd71fc9484af618d" // Rinkeby Test Honey can mint for yourself here https://rinkeby.aragon.org/#/honey/0x1a30a4c3a6679855e86fb9585b010929cfc8134a/
 // Org Token represents membership in the community and influence in proposals
 const ORG_TOKEN_NAME = "Flowers"
 const ORG_TOKEN_SYMBOL = "FLW"
