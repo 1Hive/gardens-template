@@ -3,7 +3,6 @@ const GardensTemplate = artifacts.require("GardensTemplate")
 const Token = artifacts.require("Token")
 
 const DAO_ID = "gardens" + Math.random() // Note this must be unique for each deployment, change it for subsequent deployments
-const TOKEN_OWNER = "0xb4124cEB3451635DAcedd11767f004d8a28c6eE7"
 const NETWORK_ARG = "--network"
 const DAO_ID_ARG = "--daoid"
 
@@ -30,50 +29,61 @@ const gardensTemplateAddress = () => {
   }
 }
 
+// Helpers, no need to change
 const DAYS = 24 * 60 * 60
 const ONE_HUNDRED_PERCENT = 1e18
 const ONE_TOKEN = 1e18
 const FUNDRAISING_ONE_HUNDRED_PERCENT = 1e6
 const FUNDRAISING_ONE_TOKEN = 1e6
 
-// Rinkeby test Honey
-const COLLATERAL_TOKEN_ADDRESS = "0x71850b7E9Ee3f13Ab46d67167341E4bDc905Eef9"
+// CONFIGURATION
 
-// Create dao transaction one config
-const ORG_TOKEN_NAME = "Pollen"
-const ORG_TOKEN_SYMBOL = "PLN"
+// Collateral Token is used to pay contributors and held in the bonding curve reserve
+const COLLATERAL_TOKEN_ADDRESS = "0x71850b7E9Ee3f13Ab46d67167341E4bDc905Eef9" // Rinkeby Test Honey
+// Org Token represents membership in the community and influence in proposals
+const ORG_TOKEN_NAME = "Flowers"
+const ORG_TOKEN_SYMBOL = "FLW"
+
+// Dandelion Voting Settings, Used for administrative or binary choice decisions with ragequit-like functionality
 const SUPPORT_REQUIRED = 0.5 * ONE_HUNDRED_PERCENT
 const MIN_ACCEPTANCE_QUORUM = 0.01 * ONE_HUNDRED_PERCENT
-const VOTE_DURATION_BLOCKS = 1000
-const VOTE_BUFFER_BLOCKS = 500
-const VOTE_EXECUTION_DELAY_BLOCKS = 500
+const VOTE_DURATION_BLOCKS = 180
+const VOTE_BUFFER_BLOCKS = 60
+const VOTE_EXECUTION_DELAY_BLOCKS = 60
 const VOTING_SETTINGS = [SUPPORT_REQUIRED, MIN_ACCEPTANCE_QUORUM, VOTE_DURATION_BLOCKS, VOTE_BUFFER_BLOCKS, VOTE_EXECUTION_DELAY_BLOCKS]
+// Set the fee paid to the org to create an administrative vote
+const TOLLGATE_FEE = 1 * ONE_TOKEN
+
+
+// If you want to use the Agent instead of the vault allowing the community to interact with external contracts
 const USE_AGENT_AS_VAULT = false
 
-// Create dao transaction two config
-const TOLLGATE_FEE = 50 * ONE_TOKEN
+// If you don't want to use conviction voting you can set this to false, not really recommened though.
 const USE_CONVICTION_AS_FINANCE = true
 const FINANCE_PERIOD = 0 // Irrelevant if using conviction as finance
 
-// Create dao transaction three config
-const PRESALE_GOAL = 100 * ONE_TOKEN
-const PRESALE_PERIOD = 14 * DAYS
-const PRESALE_EXCHANGE_RATE = FUNDRAISING_ONE_TOKEN
-const VESTING_CLIFF_PERIOD = 90 * DAYS
-const VESTING_COMPLETE_PERIOD = 360 * DAYS
-const PRESALE_PERCENT_SUPPLY_OFFERED = FUNDRAISING_ONE_HUNDRED_PERCENT
-const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.75 * FUNDRAISING_ONE_HUNDRED_PERCENT
-const OPEN_DATE = 0
-const BATCH_BLOCKS = 1
-const BUY_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
-const SELL_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT
-const MAXIMUM_TAP_RATE_INCREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
-const MAXIMUM_TAP_FLOOR_DECREASE_PCT = 0.5 * ONE_HUNDRED_PERCENT
+// Marketplace Bonding Curve Parameterization
 
-// Create dao transaction four config
+// Pre-sale or Hatch settings
+const PRESALE_GOAL = 100 * ONE_TOKEN // How many tokens required to initialize the bonding curve
+const PRESALE_PERIOD = 1 * DAYS // How long should the presale period last for
+const PRESALE_EXCHANGE_RATE = FUNDRAISING_ONE_TOKEN // How many organization tokens per collateral token should be minted
+const VESTING_CLIFF_PERIOD = 90 * DAYS // When is the cliff for vesting restrictions
+const VESTING_COMPLETE_PERIOD = 360 * DAYS // When will pre-sale contributors be fully vested
+const OPEN_DATE = 0 // when should the pre-sale be open, setting 0 will allow anyone to open the pre-sale anytime after deployment
+const PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY = 0.50 * FUNDRAISING_ONE_HUNDRED_PERCENT // What percentage of pre-sale contributions should go to the common pool (versus the reserve)
+
+// Entry and Exit fee settings
+const BUY_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT // percent of each "buy" that goes to the common pool
+const SELL_FEE_PCT = 0.2 * ONE_HUNDRED_PERCENT // percent of each "sell" that goes to the common pool
+
+// Bonding Curve reserve settings
+const RESERVE_RATIO = 0.25 * FUNDRAISING_ONE_HUNDRED_PERCENT // Determines reserve ratio of the bonding curve, 100 percent is a 1:1 peg with collateral asset.
+
+// Virtual Supply and Virtual balance can be used to adjust granularity of the curve, behavior will be most intuitive if you do not change these values.
 const VIRTUAL_SUPPLY = 2
 const VIRTUAL_BALANCE = 1
-const RESERVE_RATIO = 0.25 * FUNDRAISING_ONE_HUNDRED_PERCENT
+
 
 
 module.exports = async (callback) => {
@@ -107,7 +117,7 @@ module.exports = async (callback) => {
       PRESALE_EXCHANGE_RATE,
       VESTING_CLIFF_PERIOD,
       VESTING_COMPLETE_PERIOD,
-      PRESALE_PERCENT_SUPPLY_OFFERED,
+      FUNDRAISING_ONE_HUNDRED_PERCENT,
       PRESALE_PERCENT_FUNDING_FOR_BENEFICIARY,
       OPEN_DATE,
       BUY_FEE_PCT,
