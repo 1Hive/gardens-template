@@ -34,13 +34,13 @@ $ npm run deploy:rpc
 ```
 
 7) Deploy the Conviction Voting app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
-- Download https://github.com/1Hive/conviction-voting-app/tree/hooks
+- Download https://github.com/1Hive/conviction-voting-app
 - Run `npm install` in the root folder
 - Run `npm run build` in the root folder
 - Run `npx aragon apm publish major --files dist --skip-confirmation` in the root folder
 
 8) Deploy the Dandelion Voting app to the devchain as it's not installed by default like the other main apps (Voting, Token Manager, Agent etc):
-- Download https://github.com/1Hive/dandelion-voting-app/tree/use-hooked-token-manager
+- Download https://github.com/1Hive/dandelion-voting-app
 - Run `npm install` in the root folder
 - Run `npm run build` in the root folder
 - Run `npx aragon apm publish major --files dist --skip-confirmation` in the root folder
